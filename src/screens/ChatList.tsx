@@ -13,7 +13,6 @@ export const ChatList = observer(function ChatList() {
   const { chats, session, ui, contacts } = useStores()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [hint, setHint] = useState(false)
 
   useEffect(() => {
     if (session.user) void chats.syncFromSupabase(session.user).catch(() => {
@@ -21,20 +20,12 @@ export const ChatList = observer(function ChatList() {
     })
   }, [chats, session.user])
 
-  const guest = session.isGuest
-  const visible = guest
-    ? chats.sortedChats.filter((c) => c.id === session.user?.guestChatId)
-    : chats.sortedChats
+  const visible = chats.sortedChats
   const list = search
     ? visible.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
     : visible
 
   const openNewGroup = () => {
-    if (guest) {
-      setHint(true)
-      setTimeout(() => setHint(false), 2600)
-      return
-    }
     contacts.reset()
     navigate('/new-group')
   }
@@ -44,21 +35,11 @@ export const ChatList = observer(function ChatList() {
       <header className="flex shrink-0 items-center justify-between px-5 pt-2 pb-1">
         <div className="flex items-center gap-2">
           <h1 className="text-display font-bold text-ink">Chat Brat</h1>
-          {guest && (
-            <span
-              className="rounded-md px-2 py-[3px] text-caption font-semibold text-muted"
-              style={{ background: 'var(--c-bg-field)' }}
-            >
-              Гость
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-6">
-          {!guest && (
             <button type="button" aria-label="Камера" className="tap">
               <Camera size={22} strokeWidth={1.7} className="text-ink" />
             </button>
-          )}
           <button
             type="button"
             aria-label="Меню"
@@ -99,12 +80,7 @@ export const ChatList = observer(function ChatList() {
               onClick={() => navigate(`/chats/${chat.id}`)}
             />
           ))}
-          {guest && (
-            <div className="flex flex-col items-center justify-center gap-2 px-10 py-24 text-center text-label text-faint">
-              Другие чаты появятся, если вы войдёте через Telegram
-            </div>
-          )}
-          {!guest && list.length === 0 && (
+          {list.length === 0 && (
             <div className="px-10 py-24 text-center text-label text-faint">Ничего не найдено</div>
           )}
         </div>
@@ -125,17 +101,11 @@ export const ChatList = observer(function ChatList() {
         className="pointer-events-none absolute right-[22px] flex flex-col items-end gap-2"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 76px)' }}
       >
-        {hint && (
-          <div className="max-w-[220px] rounded-lg bg-ink px-3 py-2 text-center text-note text-surface">
-            Войдите через Telegram, чтобы создавать группы
-          </div>
-        )}
         <div className="pointer-events-auto">
           <Fab
             icon={MessageSquarePlus}
             label="Новая группа"
             onClick={openNewGroup}
-            disabled={guest}
           />
         </div>
       </div>

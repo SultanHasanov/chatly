@@ -21,8 +21,8 @@ npm run lint
 | # прототипа | Экран | Маршрут |
 |---|---|---|
 | 1 | Splash / онбординг | `/` |
-| 2 | Вход через Telegram | `/login` |
-| 3, 9 | Список чатов (обычный / гостевой) | `/chats` |
+| 2 | Создание профиля по имени | `/login` |
+| 3, 9 | Список групп и личных чатов | `/chats` |
 | 4, 4b | Чат, светлая и тёмная тема | `/chats/:chatId` |
 | 5 | Новая группа: участники | `/new-group` |
 | 6 | Новая группа: название | `/new-group/details` |
@@ -37,7 +37,8 @@ npm run lint
 - ответ на сообщение — двойной тап по бумажке, цитата попадает в отправленное сообщение;
 - создание группы: выбор участников с поиском и чипами → название и описание → новый чат;
 - ссылка-приглашение: копирование, `navigator.share`, QR-заглушка, сброс кода;
-- гостевой вход по `/join/:code`: виден только этот чат, FAB создания группы задизейблен с подсказкой, в настройках появляется блок «Привязать Telegram»;
+- вход по `/join/:code` без регистрации: участник задаёт имя, вступает в группу и получает полный профиль;
+- каждый пользователь может создавать группы, делиться ссылками и открывать личный чат с участником общей группы;
 - открытие чата обнуляет счётчик непрочитанных;
 - переключатель темы (светлая / тёмная / как в системе) в настройках, тёмная тема повторяет экран 4b;
 - всё состояние переживает перезагрузку (localStorage, ключи `chat-brat:*`).
@@ -48,15 +49,13 @@ npm run lint
 (`src/stores/`) и сохраняется в localStorage через `src/lib/persist.ts`. Чтобы сбросить состояние —
 очистить ключи `chat-brat:*` в DevTools → Application → Local Storage.
 
-## Telegram-вход
-
 ## Supabase backend
 
 1. Создайте проект Supabase и включите Authentication → Anonymous Sign-Ins.
 2. Примените миграцию `supabase/migrations/202607310001_chat_brat_backend.sql` через Supabase CLI или SQL Editor.
-3. Разверните Edge Functions `telegram-auth` и `send-push`.
+3. Разверните Edge Function `send-push`.
 4. Добавьте frontend-переменные из `.env.example` в `.env`.
-5. Добавьте секреты Edge Functions: `TELEGRAM_BOT_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_WEBHOOK_SECRET`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` автоматически доступны в размещённых функциях.
+5. Добавьте секреты Edge Functions: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_WEBHOOK_SECRET`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` автоматически доступны в размещённых функциях.
 6. Создайте Database Webhook для `INSERT` в `public.messages`: URL функции `send-push`, заголовок `x-webhook-secret` со значением `PUSH_WEBHOOK_SECRET`.
 7. В BotFather выполните `/setdomain` и укажите HTTPS-домен PWA.
 
@@ -68,19 +67,8 @@ npm run lint
 
 Прокси привязан к project ref `mcbrchalqroqixisffqs`. При создании другого Supabase-проекта замените этот ref во всех `destination` в `vercel.json`.
 
-По умолчанию `VITE_TELEGRAM_BOT` пуст, и экран входа показывает кнопку из прототипа, которая логинит
-тестового пользователя «Ольга Кравцова».
-
-Для реального виджета скопируйте `.env.example` в `.env` и укажите имя бота (без `@`):
-
-```
-VITE_TELEGRAM_BOT=my_login_bot
-```
-
-Домен приложения должен быть привязан к боту через `/setdomain` у @BotFather. Виджет отдаёт объект с
-полем `hash`; **проверка подписи требует секрета бота и поэтому должна выполняться на сервере** —
-в текущей frontend-only версии её нет. Перед продакшеном добавьте эндпоинт, который валидирует
-`hash` по алгоритму Telegram и выдаёт собственную сессию.
+При первом запуске пользователь задаёт только отображаемое имя. Supabase Anonymous Auth создаёт
+устойчивую техническую сессию для RLS; отдельная регистрация и внешний аккаунт не требуются.
 
 ## Дизайн-токены
 

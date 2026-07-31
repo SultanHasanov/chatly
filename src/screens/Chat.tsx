@@ -31,7 +31,10 @@ export const Chat = observer(function Chat() {
   const fileRef = useRef<HTMLInputElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const recordingStartedRef = useRef(0)
   const [recording, setRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [showEmojis, setShowEmojis] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [loadingChat, setLoadingChat] = useState(false)
   const loadAttemptedRef = useRef<string | null>(null)
@@ -57,6 +60,12 @@ export const Chat = observer(function Chat() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [list.length, replyTo])
+
+  useEffect(() => {
+    if (!recording) return
+    const timer = window.setInterval(() => setRecordingSeconds(Math.floor((Date.now() - recordingStartedRef.current) / 1000)), 250)
+    return () => window.clearInterval(timer)
+  }, [recording])
 
   if (!chat) {
     return (
@@ -101,11 +110,11 @@ export const Chat = observer(function Chat() {
     }
   }
 
-  const attach = async (file?: File) => {
+  const attach = async (file?: File, durationMs?: number) => {
     if (!file || !session.user) return
     try {
       setUploadError('')
-      await chats.sendAttachment(chat.id, file, session.user, text.trim())
+      await chats.sendAttachment(chat.id, file, session.user, text.trim(), durationMs)
       setText('')
     } catch (reason) {
       setUploadError(reason instanceof Error ? reason.message : 'Не удалось отправить файл')
@@ -124,17 +133,24 @@ export const Chat = observer(function Chat() {
       chunksRef.current = []
       recorder.ondataavailable = (event) => event.data.size && chunksRef.current.push(event.data)
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        const mimeType = recorder.mimeType.startsWith('audio/webm') ? 'audio/webm' : recorder.mimeType || 'audio/webm'
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        const durationMs = Date.now() - recordingStartedRef.current
         stream.getTracks().forEach((track) => track.stop())
-        void attach(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }))
+        void attach(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }), durationMs)
       }
       recorderRef.current = recorder
       recorder.start()
+      recordingStartedRef.current = Date.now()
+      setRecordingSeconds(0)
+      setShowEmojis(false)
       setRecording(true)
     } catch {
       setUploadError('Нет доступа к микрофону')
     }
   }
+
+  const emojis = ['😀', '😂', '🥰', '😍', '😊', '😉', '😎', '🤔', '😢', '😭', '😡', '👍', '👎', '👏', '🙏', '❤️', '🔥', '🎉', '💯', '✅', '👋', '🤝', '💪', '✨']
 
   let lastDay = ''
 
@@ -225,13 +241,18 @@ export const Chat = observer(function Chat() {
         )}
 
         {uploadError && <div className="mb-1 text-center text-note" style={{ color: 'var(--c-danger)' }}>{uploadError}</div>}
-        {recording && <div className="mb-1 text-center text-note text-muted">Идёт запись… нажмите ещё раз для отправки</div>}
+        {showEmojis && (
+          <div className="mb-2 grid grid-cols-8 gap-1 rounded-2xl p-2 shadow-lg" style={{ background: 'var(--c-bar)' }}>
+            {emojis.map((emoji) => <button key={emoji} type="button" className="tap flex h-9 items-center justify-center rounded-lg text-[23px]" onClick={() => { setText((value) => value + emoji); setShowEmojis(false) }}>{emoji}</button>)}
+          </div>
+        )}
+        {recording && <div className="mb-1 flex items-center justify-center gap-2 text-note" style={{ color: 'var(--c-danger)' }}><span className="h-2 w-2 animate-pulse rounded-full bg-current" />Запись {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')} · нажмите микрофон для отправки</div>}
         <div className="flex items-center gap-2">
           <div
             className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[24px] pr-3.5 pl-3"
             style={{ background: 'var(--c-bar)' }}
           >
-            <button type="button" aria-label="Эмодзи" className="tap shrink-0">
+            <button type="button" aria-label="Эмодзи" className="tap shrink-0" onClick={() => setShowEmojis((value) => !value)}>
               <Smile size={24} strokeWidth={1.6} className="text-muted" />
             </button>
             <input

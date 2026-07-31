@@ -3,7 +3,7 @@ import { loadState, persist } from '../lib/persist'
 import { CONTACTS, DESIGN_TEAM_MEMBERS, seedChats, seedMessages } from '../data/mock'
 import { initialsOf, randomCode } from '../lib/format'
 import type { Chat, Member, Message, Quote, SessionUser } from '../types'
-import { supabase, supabaseConfigured } from '../lib/supabase'
+import { signedMediaUrl, supabase, supabaseConfigured } from '../lib/supabase'
 import { uploadChatFile, uploadGroupAvatar } from '../lib/uploads'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -130,20 +130,33 @@ export class ChatStore {
     await this.markRead(chatId, author.id)
   }
 
-  async sendAttachment(chatId: string, file: File, author: SessionUser, caption = '') {
+  async sendAttachment(chatId: string, file: File, author: SessionUser, caption = '', durationMs?: number) {
     if (!supabaseConfigured) {
       this.messages.push({
         id: `m${Date.now()}`, chatId, authorId: author.id, authorName: author.name,
         authorColor: author.color, text: caption, ts: Date.now(), outgoing: true, status: 'sent',
-        attachment: { kind: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'voice' : 'document', caption: caption || file.name, fileName: file.name, mimeType: file.type, size: file.size, url: URL.createObjectURL(file) },
+        attachment: { kind: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'voice' : 'document', caption: caption || file.name, fileName: file.name, mimeType: file.type, size: file.size, durationMs, url: URL.createObjectURL(file) },
       })
       return
     }
     const uploaded = await uploadChatFile(chatId, author.id, file)
     const created = await supabase.from('messages').insert({ conversation_id: chatId, author_id: author.id, kind: uploaded.kind, body: caption }).select('id,created_at').single()
     if (created.error) throw created.error
-    const attachment = await supabase.from('message_attachments').insert({ message_id: created.data.id, storage_path: uploaded.path, file_name: uploaded.name, mime_type: uploaded.mimeType, size_bytes: uploaded.size })
+    const attachment = await supabase.from('message_attachments').insert({ message_id: created.data.id, storage_path: uploaded.path, file_name: uploaded.name, mime_type: uploaded.mimeType, size_bytes: uploaded.size, duration_ms: durationMs ?? null })
     if (attachment.error) throw attachment.error
+    const localAttachment: Message['attachment'] = { kind: uploaded.kind, caption: caption || uploaded.name, path: uploaded.path, url: URL.createObjectURL(file), fileName: uploaded.name, mimeType: uploaded.mimeType, size: uploaded.size, durationMs }
+    const existingMessage = this.messages.find((message) => message.id === created.data.id)
+    if (existingMessage) {
+      existingMessage.attachment = localAttachment
+    } else {
+      this.messages.push({
+        id: created.data.id, chatId, authorId: author.id, authorName: author.name,
+        authorColor: author.color, text: caption, ts: new Date(created.data.created_at).getTime(),
+        outgoing: true, status: 'sent',
+        attachment: localAttachment,
+      })
+    }
+    await this.markRead(chatId, author.id)
   }
 
   async markRead(chatId: string, userId?: string) {
@@ -240,6 +253,18 @@ export class ChatStore {
     this.chats = this.chats.filter((c) => c.id !== chatId)
     this.messages = this.messages.filter((m) => m.chatId !== chatId)
     delete this.extraMembers[chatId]
+  }
+
+  clearLocalData() {
+    this.chats = []
+    this.messages = []
+    this.extraMembers = {}
+    this.readAtOverrides.clear()
+    if (this.realtime) void supabase.removeChannel(this.realtime)
+    if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
+    this.realtime = null
+    this.reconciliationTimer = null
+    this.lastSyncAt = 0
   }
 
   togglePin(chatId: string) {
@@ -352,14 +377,30 @@ export class ChatStore {
       const memberName = profile?.display_name ?? 'Участник'
       return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : '#5B8DEF', role: row.role === 'owner' ? 'admin' : 'member' }
     })]))
-    this.messages = (messageRows.data ?? []).map((message) => this.mapRemoteMessage(message, profileMap, currentUser.id))
+    const attachmentMap = await this.loadAttachments((messageRows.data ?? []).map((message) => message.id))
+    this.messages = (messageRows.data ?? []).map((message) => this.mapRemoteMessage(message, profileMap, currentUser.id, attachmentMap.get(message.id)))
     this.lastSyncAt = Date.now()
     this.subscribeRealtime(currentUser)
   }
 
-  private mapRemoteMessage(message: Record<string, any>, profiles: Map<string, any>, currentUserId: string): Message {
+  private mapRemoteMessage(message: Record<string, any>, profiles: Map<string, any>, currentUserId: string, attachment?: Message['attachment']): Message {
     const profile = profiles.get(message.author_id)
-    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: '#5B8DEF', text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent' }
+    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: '#5B8DEF', text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent', attachment }
+  }
+
+  private async loadAttachments(messageIds: string[]): Promise<Map<string, Message['attachment']>> {
+    const result = new Map<string, Message['attachment']>()
+    if (!messageIds.length) return result
+    const { data, error } = await supabase.from('message_attachments').select('message_id,storage_path,file_name,mime_type,size_bytes,duration_ms').in('message_id', messageIds)
+    if (error) return result
+    await Promise.all((data ?? []).map(async (row) => {
+      try {
+        const url = await signedMediaUrl('chat-media', row.storage_path)
+        const kind = row.mime_type.startsWith('image/') ? 'image' : row.mime_type.startsWith('video/') ? 'video' : row.mime_type.startsWith('audio/') ? 'voice' : 'document'
+        result.set(row.message_id, { kind, caption: row.file_name, path: row.storage_path, url, fileName: row.file_name, mimeType: row.mime_type, size: Number(row.size_bytes), durationMs: row.duration_ms ?? undefined })
+      } catch { /* Keep the text message visible if a signed URL cannot be created. */ }
+    }))
+    return result
   }
 
   private subscribeRealtime(currentUser: SessionUser) {
@@ -370,7 +411,9 @@ export class ChatStore {
       if (!this.chats.some((chat) => chat.id === row.conversation_id) || this.messages.some((message) => message.id === row.id)) return
       const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
       const profileMap = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
-      this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id))
+      if (row.kind !== 'text') await new Promise((resolve) => setTimeout(resolve, 300))
+      const attachments = await this.loadAttachments([row.id])
+      this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id, attachments.get(row.id)))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
         if (chat) chat.unreadCount += 1
@@ -391,7 +434,8 @@ export class ChatStore {
       if (this.messages.some((message) => message.id === row.id)) continue
       const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
       const profiles = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
-      this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id))
+      const attachments = await this.loadAttachments([row.id])
+      this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id, attachments.get(row.id)))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
         if (chat) chat.unreadCount += 1

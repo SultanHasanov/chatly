@@ -1,6 +1,7 @@
 import { Check, CheckCheck } from 'lucide-react'
 import { formatTime } from '../lib/format'
 import type { Message } from '../types'
+import { VoiceMessage } from './VoiceMessage'
 
 export function MessageBubble({
   message,
@@ -51,7 +52,7 @@ export function MessageBubble({
         ) : message.attachment?.kind === 'video' && message.attachment.url ? (
           <video src={message.attachment.url} controls preload="metadata" className="max-h-[320px] w-[240px] rounded-lg" />
         ) : message.attachment?.kind === 'voice' && message.attachment.url ? (
-          <audio src={message.attachment.url} controls preload="metadata" className="w-[240px]" />
+          <VoiceMessage url={message.attachment.url} durationMs={message.attachment.durationMs} />
         ) : message.attachment?.kind === 'document' ? (
           <a href={message.attachment.url} download={message.attachment.fileName} className="block max-w-[240px] rounded-lg bg-field p-3 text-body font-medium text-ink">
             📎 {message.attachment.fileName || message.attachment.caption}

@@ -20,7 +20,7 @@ const THEMES: { id: ThemeMode; label: string }[] = [
 
 /** Экран 11 прототипа. */
 export const Settings = observer(function Settings() {
-  const { session, ui } = useStores()
+  const { session, chats, ui } = useStores()
   const navigate = useNavigate()
   const user = session.user
   const avatarInput = useRef<HTMLInputElement>(null)
@@ -68,7 +68,7 @@ export const Settings = observer(function Settings() {
           <input ref={avatarInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => void chooseAvatar(e.target.files?.[0])} />
           <div>
             <div className="text-[18px] font-semibold text-ink">{user?.name ?? 'Гость'}</div>
-            <div className="text-label text-muted">{session.isGuest ? 'Гостевой вход' : 'В сети'}</div>
+            <div className="text-label text-muted">В сети</div>
           </div>
         </div>
 
@@ -108,32 +108,11 @@ export const Settings = observer(function Settings() {
           </div>
         </div>
 
-        {session.isGuest && (
-          <div
-            className="m-5 flex flex-col gap-2.5 rounded-2xl p-4"
-            style={{ background: 'var(--c-bg-field)' }}
-          >
-            <div className="text-label font-semibold text-ink">Вы вошли как гость</div>
-            <p className="text-note leading-snug text-muted">
-              Привяжите Telegram, чтобы создавать свои группы и видеть все чаты
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                session.upgradeGuest()
-                navigate('/chats')
-              }}
-              className="tap flex h-11 items-center justify-center rounded-[10px] bg-accent text-body font-semibold text-white"
-            >
-              Привязать Telegram
-            </button>
-          </div>
-        )}
 
         <button
           type="button"
           onClick={() => {
-            session.logout()
+            void session.logout().then(() => chats.clearLocalData())
             navigate('/login', { replace: true })
           }}
           className="tap flex w-full items-center gap-3.5 px-5 py-4"

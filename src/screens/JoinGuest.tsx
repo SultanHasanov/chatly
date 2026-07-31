@@ -63,13 +63,13 @@ export const JoinGuest = observer(function JoinGuest() {
         const auth = await ensureAnonymousSession(name.trim())
         const joined = await supabase.rpc('join_group', { invite_code: code, guest_name: name.trim() })
         if (joined.error) throw joined.error
-        session.useAnonymousUser(auth.user.id, name.trim(), chat.id)
+        session.useAnonymousUser(auth.user.id, name.trim())
         if (!chats.chatById(chat.id)) chats.chats.unshift(chat)
         navigate('/chats', { replace: true })
       } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось вступить') }
       return
     }
-    session.loginAsGuest(name.trim(), chat.id)
+    await session.startWithName(name.trim())
     if (session.user) chats.addGuest(chat.id, session.user)
     navigate('/chats', { replace: true })
   }
@@ -110,14 +110,6 @@ export const JoinGuest = observer(function JoinGuest() {
           Войти в группу
         </button>
 
-        <button
-          type="button"
-          onClick={() => navigate('/login')}
-          className="tap mt-2 text-label font-medium"
-          style={{ color: 'var(--c-accent-deep)' }}
-        >
-          Войти через Telegram вместо этого
-        </button>
       </div>
     </Screen>
   )
