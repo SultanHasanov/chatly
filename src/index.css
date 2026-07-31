@@ -152,7 +152,7 @@ button:focus-visible {
 /* Фирменные обои переписки. Затемнение сохраняет читаемость пузырьков. */
 .chat-doodle {
   background-color: #123d59;
-  background-image: linear-gradient(rgba(0, 18, 32, 0.08), rgba(0, 18, 32, 0.08)), url('/1611098326_35-p-standartnii-fon-whatsapp-38.jpg');
+  background-image: linear-gradient(rgba(0, 18, 32, 0.08), rgba(0, 18, 32, 0.08)), url('/1611098269_31-p-standartnii-fon-whatsapp-32.jpg');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;

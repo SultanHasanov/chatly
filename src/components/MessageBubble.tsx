@@ -33,6 +33,19 @@ export function MessageBubble({
     setSwipeX(0)
   }
 
+  const metadata = (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] text-faint">
+      <span>{formatTime(message.ts)}</span>
+      {out && (message.status === 'read' ? (
+        <CheckCheck size={15} strokeWidth={1.8} style={{ color: 'var(--c-tick)' }} />
+      ) : message.status === 'delivered' ? (
+        <CheckCheck size={15} strokeWidth={1.8} className="text-faint" />
+      ) : (
+        <Check size={15} strokeWidth={1.8} className="text-faint" />
+      ))}
+    </span>
+  )
+
   return (
     <div
       className={`relative flex max-w-[80%] items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}
@@ -72,7 +85,7 @@ export function MessageBubble({
         )}
         <div
           onDoubleClick={() => onReply(message)}
-          className="px-2.5 py-2 shadow-sm"
+          className="px-2.5 py-1.5 shadow-sm"
           style={{
             background: out ? 'var(--c-bubble-out)' : 'var(--c-bubble-in)',
             borderRadius: showTail
@@ -119,20 +132,13 @@ export function MessageBubble({
             {message.attachment.caption}
           </div>
         ) : (
-          <div className="text-body whitespace-pre-wrap break-words text-ink">{message.text}</div>
+          <div className="text-body leading-[1.35] whitespace-pre-wrap break-words text-ink">
+            <span>{message.text}</span>
+            <span className="ml-2 inline-flex translate-y-[2px] align-baseline">{metadata}</span>
+          </div>
         )}
 
-        <div className="mt-0.5 flex items-center justify-end gap-1">
-          <span className="text-[11px] text-faint">{formatTime(message.ts)}</span>
-          {out &&
-            (message.status === 'read' ? (
-              <CheckCheck size={15} strokeWidth={1.8} style={{ color: 'var(--c-tick)' }} />
-            ) : message.status === 'delivered' ? (
-              <CheckCheck size={15} strokeWidth={1.8} className="text-faint" />
-            ) : (
-              <Check size={15} strokeWidth={1.8} className="text-faint" />
-            ))}
-        </div>
+        {message.attachment && <div className="mt-0.5 flex justify-end">{metadata}</div>}
         </div>
       </div>
     </div>
