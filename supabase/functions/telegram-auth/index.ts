@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
-import { fetchWithSupabase } from 'jsr:@supabase/server@^1'
+import { withSupabase } from 'jsr:@supabase/server@^1'
 import { createClient } from 'npm:@supabase/supabase-js@^2'
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
@@ -11,7 +11,7 @@ async function hmacHex(key: ArrayBuffer, data: string) {
 }
 
 export default {
-  fetch: fetchWithSupabase({ auth: ['publishable', 'user'] }, async (req) => {
+  fetch: withSupabase({ auth: ['publishable', 'user'] }, async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
     try {
     const payload = await req.json()
@@ -43,4 +43,4 @@ export default {
       return Response.json({ error: error instanceof Error ? error.message : 'Ошибка авторизации' }, { status: 400, headers: cors })
     }
   }),
-} satisfies Deno.ServeDefaultExport
+}
