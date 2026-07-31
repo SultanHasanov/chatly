@@ -1,37 +1,64 @@
 import { Check, CheckCheck } from 'lucide-react'
 import { formatTime } from '../lib/format'
 import type { Message } from '../types'
+import { Avatar } from './Avatar'
 import { VoiceMessage } from './VoiceMessage'
+
+const AVATAR_SIZE = 28
 
 export function MessageBubble({
   message,
   showAuthor,
+  avatar,
+  reserveAvatar = false,
+  showTail = true,
   onReply,
 }: {
   message: Message
   showAuthor: boolean
+  /** Аватар автора: только у первого входящего сообщения серии в группе. */
+  avatar?: { initials: string; color: string; src?: string }
+  /** Продолжение серии: место под аватар держим, сам аватар не рисуем. */
+  reserveAvatar?: boolean
+  showTail?: boolean
   onReply: (m: Message) => void
 }) {
   const out = message.outgoing
   return (
-    <div className={`flex max-w-[80%] flex-col ${out ? 'self-end' : 'self-start'}`}>
-      {!out && showAuthor && (
-        <div
-          className="mb-0.5 ml-1 text-note font-semibold"
-          style={{ color: message.authorColor }}
-        >
-          {message.authorName.split(' ')[0]}
-        </div>
+    <div className={`flex max-w-[80%] items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}>
+      {avatar ? (
+        <Avatar
+          initials={avatar.initials}
+          color={avatar.color}
+          size={AVATAR_SIZE}
+          fontSize={11}
+          src={avatar.src}
+        />
+      ) : (
+        reserveAvatar && <div className="shrink-0" style={{ width: AVATAR_SIZE }} />
       )}
-      <div
-        onDoubleClick={() => onReply(message)}
-        className="px-2.5 py-2 shadow-sm"
-        style={{
-          background: out ? 'var(--c-bubble-out)' : 'var(--c-bubble-in)',
-          borderRadius: out ? '7.5px 0 7.5px 7.5px' : '0 7.5px 7.5px 7.5px',
-          padding: message.attachment ? 6 : undefined,
-        }}
-      >
+      <div className="flex min-w-0 flex-col">
+        {!out && showAuthor && (
+          <div
+            className="mb-0.5 ml-1 text-note font-semibold"
+            style={{ color: message.authorColor }}
+          >
+            {message.authorName.split(' ')[0]}
+          </div>
+        )}
+        <div
+          onDoubleClick={() => onReply(message)}
+          className="px-2.5 py-2 shadow-sm"
+          style={{
+            background: out ? 'var(--c-bubble-out)' : 'var(--c-bubble-in)',
+            borderRadius: showTail
+              ? out
+                ? '7.5px 0 7.5px 7.5px'
+                : '0 7.5px 7.5px 7.5px'
+              : '7.5px',
+            padding: message.attachment ? 6 : undefined,
+          }}
+        >
         {message.quote && (
           <div
             className="mb-1.5 rounded-md px-2 py-1.5"
@@ -81,6 +108,7 @@ export function MessageBubble({
             ) : (
               <Check size={15} strokeWidth={1.8} className="text-faint" />
             ))}
+        </div>
         </div>
       </div>
     </div>

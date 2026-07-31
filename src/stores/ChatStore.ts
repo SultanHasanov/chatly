@@ -1,7 +1,7 @@
 import { makeAutoObservable } from 'mobx'
 import { loadState, persist } from '../lib/persist'
 import { CONTACTS, DESIGN_TEAM_MEMBERS, seedChats, seedMessages } from '../data/mock'
-import { initialsOf, randomCode } from '../lib/format'
+import { authorColorOf, initialsOf, randomCode } from '../lib/format'
 import type { Chat, Member, Message, Quote, SessionUser } from '../types'
 import { signedMediaUrl, supabase, supabaseConfigured } from '../lib/supabase'
 import { uploadChatFile, uploadGroupAvatar } from '../lib/uploads'
@@ -374,19 +374,16 @@ export class ChatStore {
     })
     await Promise.all(this.chats.map(async (chat) => {
       if (!chat.avatarPath) return
-      const cached = this.avatarUrlCache.get(chat.avatarPath)
-      if (cached && cached.expiresAt > Date.now()) {
-        chat.avatarUrl = cached.url
-        return
-      }
-      const signed = await supabase.storage.from('avatars').createSignedUrl(chat.avatarPath, 3600)
-      chat.avatarUrl = signed.data?.signedUrl
-      if (chat.avatarUrl) this.avatarUrlCache.set(chat.avatarPath, { url: chat.avatarUrl, expiresAt: Date.now() + 50 * 60_000 })
+      chat.avatarUrl = await this.signedAvatar(chat.avatarPath)
     }))
+    const memberAvatars = new Map(await Promise.all(memberIds.map(async (id): Promise<[string, string | undefined]> => {
+      const path = profileMap.get(id)?.avatar_path
+      return [id, path ? await this.signedAvatar(path) : undefined]
+    })))
     this.extraMembers = Object.fromEntries(this.chats.map((chat) => [chat.id, (memberRows.data ?? []).filter((row) => row.conversation_id === chat.id).map((row) => {
       const profile = profileMap.get(row.user_id)
       const memberName = profile?.display_name ?? 'Участник'
-      return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : '#5B8DEF', role: row.role === 'owner' ? 'admin' : 'member' }
+      return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : authorColorOf(row.user_id), role: row.role === 'owner' ? 'admin' : 'member', avatarUrl: memberAvatars.get(row.user_id) }
     })]))
     const attachmentMap = await this.loadAttachments((messageRows.data ?? []).map((message) => message.id))
     this.messages = (messageRows.data ?? []).map((message) => this.mapRemoteMessage(message, profileMap, currentUser.id, attachmentMap.get(message.id)))
@@ -396,7 +393,17 @@ export class ChatStore {
 
   private mapRemoteMessage(message: Record<string, any>, profiles: Map<string, any>, currentUserId: string, attachment?: Message['attachment']): Message {
     const profile = profiles.get(message.author_id)
-    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: '#5B8DEF', text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent', attachment }
+    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: authorColorOf(message.author_id), text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent', attachment }
+  }
+
+  /** Подписанная ссылка на аватар с кешом — общая для чатов и участников. */
+  private async signedAvatar(path: string): Promise<string | undefined> {
+    const cached = this.avatarUrlCache.get(path)
+    if (cached && cached.expiresAt > Date.now()) return cached.url
+    const signed = await supabase.storage.from('avatars').createSignedUrl(path, 3600)
+    const url = signed.data?.signedUrl
+    if (url) this.avatarUrlCache.set(path, { url, expiresAt: Date.now() + 50 * 60_000 })
+    return url
   }
 
   private async loadAttachments(messageIds: string[]): Promise<Map<string, Message['attachment']>> {

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 export function Avatar({
   initials,
   color,
@@ -11,6 +13,10 @@ export function Avatar({
   fontSize?: number
   src?: string
 }) {
+  // Подписанные ссылки живут час: протухшую подменяем инициалами, а не битой картинкой.
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [src])
+
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
@@ -21,7 +27,17 @@ export function Avatar({
         fontSize: fontSize ?? Math.round(size * 0.35),
       }}
     >
-      {src ? <img src={src} alt="" decoding="async" className="h-full w-full rounded-full object-cover" /> : initials}
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        initials
+      )}
     </div>
   )
 }

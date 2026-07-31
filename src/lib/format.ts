@@ -48,6 +48,26 @@ export function initialsOf(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase()
 }
 
+const AUTHOR_COLORS = [
+  '#e542a3',
+  '#6bcbef',
+  '#dfb610',
+  '#ff8f7a',
+  '#7bd77f',
+  '#a67bd7',
+  '#f0785a',
+  '#5b8def',
+  '#e8724c',
+  '#4ec9b0',
+]
+
+/** Стабильный цвет имени участника: одинаковый на всех устройствах. */
+export function authorColorOf(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) | 0
+  return AUTHOR_COLORS[Math.abs(hash) % AUTHOR_COLORS.length]
+}
+
 export function randomCode(): string {
   return Math.random().toString(36).slice(2, 8)
 }

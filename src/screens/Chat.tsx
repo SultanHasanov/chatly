@@ -17,7 +17,7 @@ import { useStores } from '../stores/RootStore'
 import { Avatar } from '../components/Avatar'
 import { MessageBubble } from '../components/MessageBubble'
 import { Screen, ScrollArea } from '../components/Screen'
-import { formatDayDivider } from '../lib/format'
+import { formatDayDivider, initialsOf } from '../lib/format'
 import type { Message } from '../types'
 
 /** Экраны 4 и 4b прототипа — тема переключается классом на <html>. */
@@ -78,6 +78,7 @@ export const Chat = observer(function Chat() {
   }
 
   const members = chats.membersOf(chat.id)
+  const memberById = new Map(members.map((member) => [member.id, member]))
   const subtitle = chat.isGroup
     ? `${members
         .filter((m) => m.id !== session.user?.id)
@@ -196,6 +197,9 @@ export const Chat = observer(function Chat() {
           const divider = day !== lastDay
           lastDay = day
           const prev = list[i - 1]
+          const firstOfRun = divider || prev?.authorId !== m.authorId
+          const groupIncoming = chat.isGroup && !m.outgoing
+          const author = memberById.get(m.authorId)
           return (
             <div key={m.id} className="contents">
               {divider && (
@@ -208,7 +212,18 @@ export const Chat = observer(function Chat() {
               )}
               <MessageBubble
                 message={m}
-                showAuthor={chat.isGroup && (divider || prev?.authorId !== m.authorId)}
+                showAuthor={chat.isGroup && firstOfRun}
+                showTail={firstOfRun}
+                avatar={
+                  groupIncoming && firstOfRun
+                    ? {
+                        initials: author?.initials ?? initialsOf(m.authorName),
+                        color: m.authorColor,
+                        src: author?.avatarUrl,
+                      }
+                    : undefined
+                }
+                reserveAvatar={groupIncoming && !firstOfRun}
                 onReply={setReplyTo}
               />
             </div>

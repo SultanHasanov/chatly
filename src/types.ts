@@ -9,6 +9,7 @@ export type MemberRole = 'admin' | 'member' | 'guest'
 
 export interface Member extends Contact {
   role: MemberRole
+  avatarUrl?: string
 }
 
 export interface Quote {
