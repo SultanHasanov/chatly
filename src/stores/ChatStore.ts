@@ -23,6 +23,7 @@ export class ChatStore {
   private syncPromise: Promise<void> | null = null
   private lastSyncAt = 0
   private readAtOverrides = new Map<string, number>()
+  private avatarUrlCache = new Map<string, { url: string; expiresAt: number }>()
 
   constructor() {
     makeAutoObservable(this)
@@ -260,6 +261,7 @@ export class ChatStore {
     this.messages = []
     this.extraMembers = {}
     this.readAtOverrides.clear()
+    this.avatarUrlCache.clear()
     if (this.realtime) void supabase.removeChannel(this.realtime)
     if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
     this.realtime = null
@@ -320,6 +322,7 @@ export class ChatStore {
     const result = await uploadGroupAvatar(userId, chatId, file)
     chat.avatarPath = result.path
     chat.avatarUrl = result.url
+    if (result.url) this.avatarUrlCache.set(result.path, { url: result.url, expiresAt: Date.now() + 50 * 60_000 })
   }
 
   syncFromSupabase(currentUser: SessionUser, force = false): Promise<void> {
@@ -365,12 +368,20 @@ export class ChatStore {
         message.author_id !== currentUser.id &&
         new Date(message.created_at).getTime() > lastReadAt
       ).length
-      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath: conversation.avatar_path ?? undefined }
+      const avatarPath = conversation.avatar_path ?? undefined
+      const cachedAvatar = avatarPath ? this.avatarUrlCache.get(avatarPath) : undefined
+      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath, avatarUrl: cachedAvatar?.url }
     })
     await Promise.all(this.chats.map(async (chat) => {
       if (!chat.avatarPath) return
+      const cached = this.avatarUrlCache.get(chat.avatarPath)
+      if (cached && cached.expiresAt > Date.now()) {
+        chat.avatarUrl = cached.url
+        return
+      }
       const signed = await supabase.storage.from('avatars').createSignedUrl(chat.avatarPath, 3600)
       chat.avatarUrl = signed.data?.signedUrl
+      if (chat.avatarUrl) this.avatarUrlCache.set(chat.avatarPath, { url: chat.avatarUrl, expiresAt: Date.now() + 50 * 60_000 })
     }))
     this.extraMembers = Object.fromEntries(this.chats.map((chat) => [chat.id, (memberRows.data ?? []).filter((row) => row.conversation_id === chat.id).map((row) => {
       const profile = profileMap.get(row.user_id)

@@ -21,7 +21,7 @@ export function Avatar({
         fontSize: fontSize ?? Math.round(size * 0.35),
       }}
     >
-      {src ? <img src={src} alt="" className="h-full w-full rounded-full object-cover" /> : initials}
+      {src ? <img src={src} alt="" decoding="async" className="h-full w-full rounded-full object-cover" /> : initials}
     </div>
   )
 }
