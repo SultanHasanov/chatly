@@ -21,10 +21,20 @@ const rounded = (size) => `
   </g>
 </svg>`
 
+// Android notification badge: только альфа-маска, без цветного фона.
+const notificationBadge = (size) => `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+  <g transform="translate(${size * 0.16} ${size * 0.16}) scale(${(size * 0.68) / 24})">
+    <path d="M4 12a8 8 0 1 1 3.2 6.4L4 20l1.3-3.8A8 8 0 0 1 4 12Z"
+      fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>`
+
 const targets = [
   ['public/icon-192.png', rounded(192), 192],
   ['public/icon-512.png', rounded(512), 512],
   ['public/apple-touch-icon.png', rounded(180), 180],
+  ['public/notification-badge-96.png', notificationBadge(96), 96],
   // maskable: логотип в безопасной зоне 80%, фон на всю площадь
   ['public/icon-maskable-512.png', logo(512, 512 * 0.28), 512],
 ]

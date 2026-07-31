@@ -4,7 +4,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
     icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    badge: '/notification-badge-96.png',
     tag: payload.conversationId ? `chat-${payload.conversationId}` : 'chat-brat',
     data: { url: payload.url },
   }))

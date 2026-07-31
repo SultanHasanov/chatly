@@ -22,13 +22,22 @@ export const Chat = observer(function Chat() {
   const chunksRef = useRef<Blob[]>([])
   const [recording, setRecording] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [loadingChat, setLoadingChat] = useState(false)
+  const loadAttemptedRef = useRef<string | null>(null)
 
   const chat = chats.chatById(chatId)
   const list = chat ? chats.messagesOf(chat.id) : []
 
   useEffect(() => {
+    if (chat || !chatId || !session.user || loadAttemptedRef.current === chatId) return
+    loadAttemptedRef.current = chatId
+    setLoadingChat(true)
+    void chats.syncFromSupabase(session.user).catch(() => undefined).finally(() => setLoadingChat(false))
+  }, [chat, chatId, chats, session.user])
+
+  useEffect(() => {
     if (chat) chats.markRead(chat.id)
-  }, [chat, chats])
+  }, [chat, chats, list.length])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
@@ -38,7 +47,7 @@ export const Chat = observer(function Chat() {
     return (
       <Screen>
         <div className="flex h-full items-center justify-center text-label text-muted">
-          Чат не найден
+          {loadingChat ? 'Загрузка чата…' : 'Чат не найден или доступ к нему закрыт'}
         </div>
       </Screen>
     )

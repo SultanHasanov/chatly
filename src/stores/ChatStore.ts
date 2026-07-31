@@ -145,6 +145,12 @@ export class ChatStore {
   markRead(chatId: string) {
     const chat = this.chatById(chatId)
     if (chat) chat.unreadCount = 0
+    if (supabaseConfigured) {
+      void supabase
+        .from('conversation_members')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('conversation_id', chatId)
+    }
   }
 
   createGroup(name: string, memberIds: string[], author: SessionUser, description?: string): Chat {
@@ -284,7 +290,7 @@ export class ChatStore {
 
   async syncFromSupabase(currentUser: SessionUser) {
     if (!supabaseConfigured) return
-    const memberships = await supabase.from('conversation_members').select('conversation_id,pinned').eq('user_id', currentUser.id)
+    const memberships = await supabase.from('conversation_members').select('conversation_id,pinned,last_read_at').eq('user_id', currentUser.id)
     if (memberships.error) throw memberships.error
     const ids = (memberships.data ?? []).map((row) => row.conversation_id)
     if (!ids.length) { this.chats = []; this.messages = []; return }
@@ -304,7 +310,14 @@ export class ChatStore {
       const directOther = members.find((row) => row.user_id !== currentUser.id)
       const directProfile = directOther ? profileMap.get(directOther.user_id) : undefined
       const name = conversation.kind === 'direct' ? directProfile?.display_name ?? 'Личный чат' : conversation.name
-      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: memberships.data?.find((row) => row.conversation_id === conversation.id)?.pinned ?? false, unreadCount: 0, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath: conversation.avatar_path ?? undefined }
+      const membership = memberships.data?.find((row) => row.conversation_id === conversation.id)
+      const lastReadAt = new Date(membership?.last_read_at ?? 0).getTime()
+      const unreadCount = (messageRows.data ?? []).filter((message) =>
+        message.conversation_id === conversation.id &&
+        message.author_id !== currentUser.id &&
+        new Date(message.created_at).getTime() > lastReadAt
+      ).length
+      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath: conversation.avatar_path ?? undefined }
     })
     await Promise.all(this.chats.map(async (chat) => {
       if (!chat.avatarPath) return
@@ -334,6 +347,10 @@ export class ChatStore {
       const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
       const profileMap = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id))
+      if (row.author_id !== currentUser.id) {
+        const chat = this.chatById(row.conversation_id)
+        if (chat) chat.unreadCount += 1
+      }
     }).subscribe()
     this.reconciliationTimer = setInterval(() => void this.reconcileMessages(currentUser), 5000)
   }
@@ -351,6 +368,10 @@ export class ChatStore {
       const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
       const profiles = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id))
+      if (row.author_id !== currentUser.id) {
+        const chat = this.chatById(row.conversation_id)
+        if (chat) chat.unreadCount += 1
+      }
     }
   }
 }
