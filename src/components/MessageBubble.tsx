@@ -48,8 +48,8 @@ export function MessageBubble({
 
   return (
     <div
-      className={`relative flex max-w-[80%] items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}
-      style={{ transform: `translateX(${swipeX}px)`, transition: swipeX ? 'none' : 'transform 160ms ease', touchAction: 'pan-y' }}
+      className={`message-bubble relative flex max-w-[80%] select-none items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}
+      style={{ transform: `translateX(${swipeX}px)`, transition: swipeX ? 'none' : 'transform 160ms ease', touchAction: 'pan-y', userSelect: 'none' }}
       onPointerDown={(event) => { gesture.current = { x: event.clientX, y: event.clientY } }}
       onPointerMove={(event) => {
         const dx = event.clientX - gesture.current.x

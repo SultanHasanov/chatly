@@ -165,3 +165,12 @@ button:focus-visible {
 .tap:active {
   opacity: 0.7;
 }
+
+/* Android/Chrome иначе выделяет текст сообщения при удержании и открывает
+   системную панель Google Search. Для ответа используется свайп вправо. */
+.message-bubble,
+.message-bubble * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
