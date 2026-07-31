@@ -21,6 +21,19 @@ export async function enablePush(userId: string) {
     applicationServerKey: decodeBase64Url(key),
   })
   await savePushSubscription(userId, subscription)
+  return true
+}
+
+export async function disablePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
+  const registration = await navigator.serviceWorker.ready
+  const subscription = await registration.pushManager.getSubscription()
+  if (!subscription) return false
+  const endpoint = subscription.endpoint
+  await subscription.unsubscribe()
+  const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
+  if (error) throw error
+  return false
 }
 
 async function savePushSubscription(userId: string, subscription: PushSubscription) {
@@ -37,7 +50,7 @@ async function savePushSubscription(userId: string, subscription: PushSubscripti
 }
 
 export async function restorePushSubscription(userId: string) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted') return false
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return false
   const registration = await navigator.serviceWorker.ready
   const subscription = await registration.pushManager.getSubscription()
   if (!subscription) return false

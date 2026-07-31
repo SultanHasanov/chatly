@@ -15,6 +15,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
 import { Avatar } from '../components/Avatar'
 import { MessageBubble } from '../components/MessageBubble'
+import { MediaViewer } from '../components/MediaViewer'
 import { Screen, ScrollArea } from '../components/Screen'
 import { formatDayDivider, initialsOf } from '../lib/format'
 import type { Message } from '../types'
@@ -26,6 +27,7 @@ export const Chat = observer(function Chat() {
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [openMedia, setOpenMedia] = useState<Message | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -59,6 +61,8 @@ export const Chat = observer(function Chat() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [list.length, replyTo])
+
+  const scrollToEnd = () => requestAnimationFrame(() => endRef.current?.scrollIntoView({ block: 'end' }))
 
   useEffect(() => {
     if (!recording) return
@@ -225,6 +229,8 @@ export const Chat = observer(function Chat() {
                 }
                 reserveAvatar={groupIncoming && !firstOfRun}
                 onReply={setReplyTo}
+                onOpenMedia={setOpenMedia}
+                onMediaLoad={m.outgoing ? scrollToEnd : undefined}
               />
             </div>
           )
@@ -302,6 +308,7 @@ export const Chat = observer(function Chat() {
           </button>
         </div>
       </div>
+      {openMedia && <MediaViewer message={openMedia} onClose={() => setOpenMedia(null)} />}
     </Screen>
   )
 })

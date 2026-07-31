@@ -9,7 +9,7 @@ import { Screen, ScrollArea } from '../components/Screen'
 import { TopBar } from '../components/TopBar'
 import type { ThemeMode } from '../types'
 import { uploadAvatar } from '../lib/uploads'
-import { enablePush, restorePushSubscription } from '../lib/push'
+import { disablePush, enablePush, restorePushSubscription } from '../lib/push'
 import { supabaseConfigured } from '../lib/supabase'
 
 const THEMES: { id: ThemeMode; label: string }[] = [
@@ -25,9 +25,16 @@ export const Settings = observer(function Settings() {
   const user = session.user
   const avatarInput = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushBusy, setPushBusy] = useState(true)
 
   useEffect(() => {
-    if (user) void restorePushSubscription(user.id).catch(() => undefined)
+    if (!user) return
+    setPushBusy(true)
+    void restorePushSubscription(user.id)
+      .then(setPushEnabled)
+      .catch(() => setPushEnabled(false))
+      .finally(() => setPushBusy(false))
   }, [user])
 
   const chooseAvatar = async (file?: File) => {
@@ -42,13 +49,24 @@ export const Settings = observer(function Settings() {
     }
   }
 
-  const subscribePush = async () => {
+  const togglePush = async () => {
     if (!user) return
     try {
-      await enablePush(user.id)
-      setNotice('Уведомления включены')
+      setPushBusy(true)
+      setNotice('')
+      if (pushEnabled) {
+        await disablePush()
+        setPushEnabled(false)
+        setNotice('Уведомления отключены')
+      } else {
+        await enablePush(user.id)
+        setPushEnabled(true)
+        setNotice('Уведомления включены')
+      }
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : 'Не удалось включить уведомления')
+      setNotice(reason instanceof Error ? reason.message : 'Не удалось изменить настройки уведомлений')
+    } finally {
+      setPushBusy(false)
     }
   }
 
@@ -75,7 +93,25 @@ export const Settings = observer(function Settings() {
         <ListRow icon={User} label="Аккаунт" />
         <ListRow icon={Shield} label="Приватность" />
         <ListRow icon={MessageCircle} label="Чаты" />
-        <ListRow icon={Bell} label="Уведомления" onClick={() => void subscribePush()} />
+        <div className="flex w-full items-center gap-3.5 border-b border-divider-soft px-5 py-3.5">
+          <Bell size={20} strokeWidth={1.6} style={{ color: 'var(--c-accent-deep)' }} />
+          <span className="flex-1 text-item text-ink">Уведомления</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={pushEnabled}
+            aria-label={pushEnabled ? 'Отключить уведомления' : 'Включить уведомления'}
+            disabled={pushBusy}
+            onClick={() => void togglePush()}
+            className="tap relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50"
+            style={{ background: pushEnabled ? 'var(--c-accent)' : 'var(--c-disabled)' }}
+          >
+            <span
+              className="absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-transform"
+              style={{ left: 3, transform: pushEnabled ? 'translateX(20px)' : 'translateX(0)' }}
+            />
+          </button>
+        </div>
         <ListRow icon={Database} label="Хранилище" />
         {notice && <div className="px-5 py-2 text-center text-note text-muted">{notice}</div>}
 

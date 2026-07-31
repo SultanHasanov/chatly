@@ -35,6 +35,7 @@ export interface Message {
     mimeType?: string
     size?: number
     durationMs?: number
+    uploading?: boolean
   }
   quote?: Quote
   ts: number

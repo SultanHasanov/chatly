@@ -133,32 +133,40 @@ export class ChatStore {
   }
 
   async sendAttachment(chatId: string, file: File, author: SessionUser, caption = '', durationMs?: number) {
+    const kind = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'voice' : 'document'
+    const previewUrl = URL.createObjectURL(file)
+    const temporaryId = `upload-${crypto.randomUUID()}`
+    const pending: Message = {
+      id: temporaryId, chatId, authorId: author.id, authorName: author.name,
+      authorColor: author.color, text: caption, ts: Date.now(), outgoing: true, status: 'sent',
+      attachment: { kind, caption: caption || file.name, fileName: file.name, mimeType: file.type, size: file.size, durationMs, url: previewUrl, uploading: supabaseConfigured },
+    }
+    this.messages.push(pending)
     if (!supabaseConfigured) {
-      this.messages.push({
-        id: `m${Date.now()}`, chatId, authorId: author.id, authorName: author.name,
-        authorColor: author.color, text: caption, ts: Date.now(), outgoing: true, status: 'sent',
-        attachment: { kind: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'voice' : 'document', caption: caption || file.name, fileName: file.name, mimeType: file.type, size: file.size, durationMs, url: URL.createObjectURL(file) },
-      })
       return
     }
-    const uploaded = await uploadChatFile(chatId, author.id, file)
-    const created = await supabase.from('messages').insert({ conversation_id: chatId, author_id: author.id, kind: uploaded.kind, body: caption }).select('id,created_at').single()
-    if (created.error) throw created.error
-    const attachment = await supabase.from('message_attachments').insert({ message_id: created.data.id, storage_path: uploaded.path, file_name: uploaded.name, mime_type: uploaded.mimeType, size_bytes: uploaded.size, duration_ms: durationMs ?? null })
-    if (attachment.error) throw attachment.error
-    const localAttachment: Message['attachment'] = { kind: uploaded.kind, caption: caption || uploaded.name, path: uploaded.path, url: URL.createObjectURL(file), fileName: uploaded.name, mimeType: uploaded.mimeType, size: uploaded.size, durationMs }
-    const existingMessage = this.messages.find((message) => message.id === created.data.id)
-    if (existingMessage) {
-      existingMessage.attachment = localAttachment
-    } else {
-      this.messages.push({
-        id: created.data.id, chatId, authorId: author.id, authorName: author.name,
-        authorColor: author.color, text: caption, ts: new Date(created.data.created_at).getTime(),
-        outgoing: true, status: 'sent',
-        attachment: localAttachment,
-      })
+    try {
+      const uploaded = await uploadChatFile(chatId, author.id, file)
+      const created = await supabase.from('messages').insert({ conversation_id: chatId, author_id: author.id, kind: uploaded.kind, body: caption }).select('id,created_at').single()
+      if (created.error) throw created.error
+      const attachment = await supabase.from('message_attachments').insert({ message_id: created.data.id, storage_path: uploaded.path, file_name: uploaded.name, mime_type: uploaded.mimeType, size_bytes: uploaded.size, duration_ms: durationMs ?? null })
+      if (attachment.error) throw attachment.error
+      const localAttachment: Message['attachment'] = { kind: uploaded.kind, caption: caption || uploaded.name, path: uploaded.path, url: previewUrl, fileName: uploaded.name, mimeType: uploaded.mimeType, size: uploaded.size, durationMs, uploading: false }
+      const realtimeMessage = this.messages.find((message) => message.id === created.data.id)
+      if (realtimeMessage) {
+        realtimeMessage.attachment = localAttachment
+        this.messages = this.messages.filter((message) => message.id !== temporaryId)
+      } else {
+        pending.id = created.data.id
+        pending.ts = new Date(created.data.created_at).getTime()
+        pending.attachment = localAttachment
+      }
+      await this.markRead(chatId, author.id)
+    } catch (reason) {
+      this.messages = this.messages.filter((message) => message.id !== temporaryId)
+      URL.revokeObjectURL(previewUrl)
+      throw reason
     }
-    await this.markRead(chatId, author.id)
   }
 
   async markRead(chatId: string, userId?: string) {

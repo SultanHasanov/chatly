@@ -14,6 +14,8 @@ export function MessageBubble({
   reserveAvatar = false,
   showTail = true,
   onReply,
+  onOpenMedia,
+  onMediaLoad,
 }: {
   message: Message
   showAuthor: boolean
@@ -23,6 +25,8 @@ export function MessageBubble({
   reserveAvatar?: boolean
   showTail?: boolean
   onReply: (m: Message) => void
+  onOpenMedia?: (m: Message) => void
+  onMediaLoad?: () => void
 }) {
   const out = message.outgoing
   const gesture = useRef({ x: 0, y: 0 })
@@ -111,10 +115,13 @@ export function MessageBubble({
           </div>
         )}
 
-        {message.attachment?.kind === 'image' && message.attachment.url ? (
-          <img src={message.attachment.url} alt={message.attachment.caption} className="max-h-[320px] w-[220px] rounded-lg object-cover" />
+        {message.attachment?.kind === 'image' ? (
+          <button type="button" onClick={() => !message.attachment?.uploading && onOpenMedia?.(message)} className="relative block h-[220px] w-[220px] overflow-hidden rounded-lg bg-field">
+            {message.attachment.url ? <img src={message.attachment.url} alt={message.attachment.caption} onLoad={onMediaLoad} className="h-full w-full object-cover" /> : <span className="absolute inset-0 animate-pulse bg-field" />}
+            {message.attachment.uploading && <span className="absolute inset-0 flex items-center justify-center bg-black/35"><span className="h-9 w-9 animate-spin rounded-full border-[3px] border-white/40 border-t-white" /></span>}
+          </button>
         ) : message.attachment?.kind === 'video' && message.attachment.url ? (
-          <video src={message.attachment.url} controls preload="metadata" className="max-h-[320px] w-[240px] rounded-lg" />
+          <div className="relative"><video src={message.attachment.url} controls preload="metadata" onLoadedMetadata={onMediaLoad} className="max-h-[320px] w-[240px] rounded-lg" />{message.attachment.uploading && <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/35"><span className="h-9 w-9 animate-spin rounded-full border-[3px] border-white/40 border-t-white" /></span>}</div>
         ) : message.attachment?.kind === 'voice' && message.attachment.url ? (
           <VoiceMessage url={message.attachment.url} durationMs={message.attachment.durationMs} />
         ) : message.attachment?.kind === 'document' ? (
