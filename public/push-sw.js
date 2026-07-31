@@ -1,13 +1,17 @@
 self.addEventListener('push', (event) => {
   let payload = { title: 'Chat Brat', body: 'Новое сообщение', url: '/chats' }
   try { payload = { ...payload, ...event.data.json() } } catch { /* use safe defaults */ }
-  event.waitUntil(self.registration.showNotification(payload.title, {
+  const notification = self.registration.showNotification(payload.title, {
     body: payload.body,
     icon: '/icon-192.png',
     badge: '/notification-badge-96.png',
     tag: payload.conversationId ? `chat-${payload.conversationId}` : 'chat-brat',
     data: { url: payload.url },
-  }))
+  })
+  const badge = typeof self.navigator.setAppBadge === 'function'
+    ? self.navigator.setAppBadge().catch(() => undefined)
+    : Promise.resolve()
+  event.waitUntil(Promise.all([notification, badge]))
 })
 
 self.addEventListener('notificationclick', (event) => {

@@ -16,6 +16,7 @@ import { useStores } from '../stores/RootStore'
 import { Avatar } from '../components/Avatar'
 import { MessageBubble } from '../components/MessageBubble'
 import { MediaViewer } from '../components/MediaViewer'
+import { MediaComposer } from '../components/MediaComposer'
 import { Screen, ScrollArea } from '../components/Screen'
 import { formatDayDivider, initialsOf } from '../lib/format'
 import type { Message } from '../types'
@@ -28,6 +29,7 @@ export const Chat = observer(function Chat() {
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [openMedia, setOpenMedia] = useState<Message | null>(null)
+  const [selectedMedia, setSelectedMedia] = useState<File[]>([])
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -124,6 +126,17 @@ export const Chat = observer(function Chat() {
     } catch (reason) {
       setUploadError(reason instanceof Error ? reason.message : 'Не удалось отправить файл')
     }
+  }
+
+  const sendSelectedMedia = (files: File[], caption: string) => {
+    if (!session.user) return
+    setSelectedMedia([])
+    setUploadError('')
+    const uploads = files.map((file, index) => chats.sendAttachment(chat.id, file, session.user!, index === 0 ? caption : ''))
+    setText('')
+    void Promise.all(uploads).catch((reason) => {
+      setUploadError(reason instanceof Error ? reason.message : 'Не удалось отправить медиа')
+    })
   }
 
   const toggleRecording = async () => {
@@ -293,7 +306,7 @@ export const Chat = observer(function Chat() {
               <Camera size={22} strokeWidth={1.6} className="text-muted" />
             </button>
           </div>
-          <input ref={fileRef} hidden type="file" accept="image/*,video/*" onChange={(e) => { void attach(e.target.files?.[0]); e.currentTarget.value = '' }} />
+          <input ref={fileRef} hidden multiple type="file" accept="image/*,video/*" onChange={(e) => { setSelectedMedia(Array.from(e.target.files ?? [])); e.currentTarget.value = '' }} />
           <button
             type="button"
             aria-label={text ? 'Отправить' : 'Голосовое сообщение'}
@@ -309,6 +322,7 @@ export const Chat = observer(function Chat() {
         </div>
       </div>
       {openMedia && <MediaViewer message={openMedia} onClose={() => setOpenMedia(null)} />}
+      {selectedMedia.length > 0 && <MediaComposer files={selectedMedia} onClose={() => setSelectedMedia([])} onSend={sendSelectedMedia} />}
     </Screen>
   )
 })

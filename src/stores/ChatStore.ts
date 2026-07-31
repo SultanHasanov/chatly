@@ -54,7 +54,16 @@ export class ChatStore {
   }
 
   messagesOf(chatId: string): Message[] {
-    return this.messages.filter((m) => m.chatId === chatId).sort((a, b) => a.ts - b.ts)
+    const unique = new Map<string, Message>()
+    for (const message of this.messages) {
+      if (message.chatId !== chatId) continue
+      const existing = unique.get(message.id)
+      // Prefer the completed server/realtime representation over a pending one.
+      if (!existing || (existing.attachment?.uploading && !message.attachment?.uploading)) {
+        unique.set(message.id, message)
+      }
+    }
+    return [...unique.values()].sort((a, b) => a.ts - b.ts)
   }
 
   lastMessageOf(chatId: string): Message | undefined {
@@ -483,6 +492,9 @@ export class ChatStore {
       const profiles = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       const attachments = await this.loadAttachments([row.id])
       const quote = await this.quoteFor(row)
+      // The optimistic item can acquire this id while the attachment and quote
+      // requests are in flight. Do not append a second representation.
+      if (this.messages.some((message) => message.id === row.id)) continue
       this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id, attachments.get(row.id), quote))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
