@@ -4,7 +4,6 @@ import {
   Camera,
   Mic,
   MoreVertical,
-  Paperclip,
   Phone,
   Send,
   Smile,
@@ -99,6 +98,7 @@ export const Chat = observer(function Chat() {
         session.user,
         replyTo
           ? {
+              messageId: replyTo.id,
               authorName: replyTo.authorName.split(' ')[0],
               text: replyTo.attachment ? replyTo.attachment.caption : replyTo.text,
             }
@@ -283,21 +283,11 @@ export const Chat = observer(function Chat() {
               placeholder="Сообщение"
               className="min-w-0 flex-1 text-body placeholder:text-faint"
             />
-            <button
-              type="button"
-              aria-label="Вложение"
-              className="tap shrink-0"
-              onClick={() => fileRef.current?.click()}
-            >
-              <Paperclip size={22} strokeWidth={1.6} className="text-muted" />
+            <button type="button" aria-label="Выбрать фото или видео" className="tap shrink-0" onClick={() => fileRef.current?.click()}>
+              <Camera size={22} strokeWidth={1.6} className="text-muted" />
             </button>
-            {!text && (
-              <button type="button" aria-label="Камера" className="tap shrink-0">
-                <Camera size={22} strokeWidth={1.6} className="text-muted" />
-              </button>
-            )}
           </div>
-          <input ref={fileRef} hidden type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onChange={(e) => void attach(e.target.files?.[0])} />
+          <input ref={fileRef} hidden type="file" accept="image/*,video/*" onChange={(e) => { void attach(e.target.files?.[0]); e.currentTarget.value = '' }} />
           <button
             type="button"
             aria-label={text ? 'Отправить' : 'Голосовое сообщение'}

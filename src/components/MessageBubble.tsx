@@ -1,4 +1,5 @@
-import { Check, CheckCheck } from 'lucide-react'
+import { Check, CheckCheck, Reply } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { formatTime } from '../lib/format'
 import type { Message } from '../types'
 import { Avatar } from './Avatar'
@@ -24,8 +25,31 @@ export function MessageBubble({
   onReply: (m: Message) => void
 }) {
   const out = message.outgoing
+  const gesture = useRef({ x: 0, y: 0 })
+  const [swipeX, setSwipeX] = useState(0)
+
+  const finishSwipe = () => {
+    if (swipeX >= 48) onReply(message)
+    setSwipeX(0)
+  }
+
   return (
-    <div className={`flex max-w-[80%] items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}>
+    <div
+      className={`relative flex max-w-[80%] items-start gap-1.5 ${out ? 'self-end' : 'self-start'}`}
+      style={{ transform: `translateX(${swipeX}px)`, transition: swipeX ? 'none' : 'transform 160ms ease', touchAction: 'pan-y' }}
+      onPointerDown={(event) => { gesture.current = { x: event.clientX, y: event.clientY } }}
+      onPointerMove={(event) => {
+        const dx = event.clientX - gesture.current.x
+        const dy = event.clientY - gesture.current.y
+        if (dx > 0 && Math.abs(dx) > Math.abs(dy)) setSwipeX(Math.min(64, dx))
+      }}
+      onPointerUp={finishSwipe}
+      onPointerCancel={() => setSwipeX(0)}
+      onContextMenu={(event) => { event.preventDefault(); onReply(message) }}
+    >
+      <span className="pointer-events-none absolute top-1/2 -left-8 -translate-y-1/2" style={{ color: 'var(--c-accent-deep)', opacity: Math.min(1, swipeX / 40) }}>
+        <Reply size={22} />
+      </span>
       {avatar ? (
         <Avatar
           initials={avatar.initials}

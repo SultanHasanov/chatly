@@ -105,6 +105,7 @@ export class ChatStore {
         author_id: author.id,
         kind: 'text',
         body,
+        reply_to_id: quote?.messageId ?? null,
       }).select('id,conversation_id,author_id,body,created_at').single()
       if (error) throw error
       if (!this.messages.some((message) => message.id === data.id)) {
@@ -386,14 +387,30 @@ export class ChatStore {
       return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : authorColorOf(row.user_id), role: row.role === 'owner' ? 'admin' : 'member', avatarUrl: memberAvatars.get(row.user_id) }
     })]))
     const attachmentMap = await this.loadAttachments((messageRows.data ?? []).map((message) => message.id))
-    this.messages = (messageRows.data ?? []).map((message) => this.mapRemoteMessage(message, profileMap, currentUser.id, attachmentMap.get(message.id)))
+    const remoteRows = new Map((messageRows.data ?? []).map((message) => [message.id, message]))
+    this.messages = (messageRows.data ?? []).map((message) => {
+      const replied = message.reply_to_id ? remoteRows.get(message.reply_to_id) : undefined
+      const replyProfile = replied ? profileMap.get(replied.author_id) : undefined
+      const quote = replied ? { messageId: replied.id, authorName: replyProfile?.display_name ?? 'Участник', text: replied.body || 'Вложение' } : undefined
+      return this.mapRemoteMessage(message, profileMap, currentUser.id, attachmentMap.get(message.id), quote)
+    })
     this.lastSyncAt = Date.now()
     this.subscribeRealtime(currentUser)
   }
 
-  private mapRemoteMessage(message: Record<string, any>, profiles: Map<string, any>, currentUserId: string, attachment?: Message['attachment']): Message {
+  private mapRemoteMessage(message: Record<string, any>, profiles: Map<string, any>, currentUserId: string, attachment?: Message['attachment'], quote?: Quote): Message {
     const profile = profiles.get(message.author_id)
-    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: authorColorOf(message.author_id), text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent', attachment }
+    return { id: message.id, chatId: message.conversation_id, authorId: message.author_id, authorName: profile?.display_name ?? 'Участник', authorColor: authorColorOf(message.author_id), text: message.body ?? '', ts: new Date(message.created_at).getTime(), outgoing: message.author_id === currentUserId, status: 'sent', attachment, quote }
+  }
+
+  private async quoteFor(message: Record<string, any>): Promise<Quote | undefined> {
+    if (!message.reply_to_id) return undefined
+    const local = this.messages.find((item) => item.id === message.reply_to_id)
+    if (local) return { messageId: local.id, authorName: local.authorName, text: local.attachment?.caption || local.text }
+    const { data } = await supabase.from('messages').select('id,author_id,body').eq('id', message.reply_to_id).maybeSingle()
+    if (!data) return undefined
+    const member = this.membersOf(message.conversation_id).find((item) => item.id === data.author_id)
+    return { messageId: data.id, authorName: member?.name ?? 'Участник', text: data.body || 'Вложение' }
   }
 
   /** Подписанная ссылка на аватар с кешом — общая для чатов и участников. */
@@ -431,7 +448,8 @@ export class ChatStore {
       const profileMap = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       if (row.kind !== 'text') await new Promise((resolve) => setTimeout(resolve, 300))
       const attachments = await this.loadAttachments([row.id])
-      this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id, attachments.get(row.id)))
+      const quote = await this.quoteFor(row)
+      this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id, attachments.get(row.id), quote))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
         if (chat) chat.unreadCount += 1
@@ -453,7 +471,8 @@ export class ChatStore {
       const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
       const profiles = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       const attachments = await this.loadAttachments([row.id])
-      this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id, attachments.get(row.id)))
+      const quote = await this.quoteFor(row)
+      this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id, attachments.get(row.id), quote))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
         if (chat) chat.unreadCount += 1

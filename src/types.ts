@@ -13,6 +13,7 @@ export interface Member extends Contact {
 }
 
 export interface Quote {
+  messageId: string
   authorName: string
   text: string
 }

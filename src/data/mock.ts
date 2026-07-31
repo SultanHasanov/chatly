@@ -185,7 +185,7 @@ export function seedMessages(): Message[] {
       authorName: 'Ольга',
       authorColor: '#128C7E',
       text: 'Отлично, гляну после обеда',
-      quote: { authorName: 'Марина', text: 'Скинула макеты в фигму, посмотрите поле ввода' },
+      quote: { messageId: 'm-design-1', authorName: 'Марина', text: 'Скинула макеты в фигму, посмотрите поле ввода' },
       ts: at(10, 5),
       outgoing: true,
       status: 'read',
