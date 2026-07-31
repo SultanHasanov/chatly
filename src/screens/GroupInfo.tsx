@@ -1,5 +1,6 @@
 import { observer } from 'mobx-react-lite'
-import { Bell, Images, Link2, LogOut, Phone, Search, Video } from 'lucide-react'
+import { Bell, Images, Link2, LogOut, Pencil, Phone, Search, Trash2, Video } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
 import { Avatar } from '../components/Avatar'
@@ -14,6 +15,8 @@ export const GroupInfo = observer(function GroupInfo() {
   const { chatId } = useParams()
   const { chats, session } = useStores()
   const navigate = useNavigate()
+  const [error, setError] = useState('')
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   const chat = chats.chatById(chatId)
   if (!chat) {
@@ -26,6 +29,7 @@ export const GroupInfo = observer(function GroupInfo() {
   }
 
   const members = chats.membersOf(chat.id)
+  const isOwner = chat.isGroup && members.some((member) => member.id === session.user?.id && member.role === 'admin')
 
   const leave = () => {
     chats.leaveChat(chat.id)
@@ -36,6 +40,40 @@ export const GroupInfo = observer(function GroupInfo() {
     if (memberId === session.user?.id) return
     const directId = await chats.openDirect(memberId)
     if (directId) navigate(`/chats/${directId}`)
+  }
+
+  const rename = async () => {
+    const name = window.prompt('Новое название группы', chat.name)
+    if (name === null) return
+    const description = window.prompt('Описание группы', chat.description ?? '')
+    if (description === null) return
+    try {
+      setError('')
+      await chats.renameGroup(chat.id, name, description)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось переименовать группу')
+    }
+  }
+
+  const remove = async () => {
+    if (!window.confirm(`Удалить группу «${chat.name}» для всех участников? Это действие нельзя отменить.`)) return
+    try {
+      setError('')
+      await chats.deleteGroup(chat.id)
+      navigate('/chats', { replace: true })
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось удалить группу')
+    }
+  }
+
+  const changeAvatar = async (file?: File) => {
+    if (!file || !session.user) return
+    try {
+      setError('')
+      await chats.setGroupAvatar(chat.id, session.user.id, file)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось обновить фото группы')
+    }
   }
 
   const action = (Icon: typeof Phone, label: string) => (
@@ -56,7 +94,10 @@ export const GroupInfo = observer(function GroupInfo() {
 
       <ScrollArea>
         <div className="flex flex-col items-center gap-1.5 px-5 pt-3.5 pb-2.5">
-          <Avatar initials={chat.initials} color={chat.color} size={76} fontSize={26} />
+          <button type="button" disabled={!isOwner} onClick={() => avatarInput.current?.click()} className="tap">
+            <Avatar initials={chat.initials} color={chat.color} size={76} fontSize={26} src={chat.avatarUrl} />
+          </button>
+          <input ref={avatarInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void changeAvatar(event.target.files?.[0])} />
           <div className="text-heading font-bold text-ink">{chat.name}</div>
           <div className="text-note text-muted">
             {chat.isGroup ? `Группа · ${chat.memberCount} участников` : 'Личный чат'}
@@ -82,6 +123,7 @@ export const GroupInfo = observer(function GroupInfo() {
           iconColor="var(--c-text-muted)"
         />
         <ListRow icon={Bell} label="Уведомления" iconColor="var(--c-text-muted)" />
+        {isOwner && <ListRow icon={Pencil} label="Переименовать группу" iconColor="var(--c-text-muted)" onClick={() => void rename()} />}
         {chat.isGroup && (
           <ListRow
             icon={Link2}
@@ -113,6 +155,15 @@ export const GroupInfo = observer(function GroupInfo() {
             </button>
           ))}
         </div>
+
+        {error && <div className="px-5 py-2 text-center text-note" style={{ color: 'var(--c-danger)' }}>{error}</div>}
+
+        {isOwner && (
+          <button type="button" onClick={() => void remove()} className="tap mt-1 flex w-full items-center justify-center gap-2 px-5 py-3">
+            <Trash2 size={18} strokeWidth={1.7} style={{ color: 'var(--c-danger)' }} />
+            <span className="text-item font-semibold" style={{ color: 'var(--c-danger)' }}>Удалить группу для всех</span>
+          </button>
+        )}
 
         <button
           type="button"

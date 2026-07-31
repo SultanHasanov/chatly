@@ -54,6 +54,8 @@ export interface Chat {
   inviteCode: string
   description?: string
   mediaCount: number
+  avatarPath?: string
+  avatarUrl?: string
 }
 
 export interface SessionUser {

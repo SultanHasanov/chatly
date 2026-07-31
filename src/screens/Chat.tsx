@@ -123,7 +123,7 @@ export const Chat = observer(function Chat() {
           className="tap flex min-w-0 flex-1 items-center gap-2.5 text-left"
           onClick={() => navigate(`/chats/${chat.id}/info`)}
         >
-          <Avatar initials={chat.initials} color={chat.color} size={38} fontSize={14} />
+          <Avatar initials={chat.initials} color={chat.color} size={38} fontSize={14} src={chat.avatarUrl} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-item font-semibold text-ink">{chat.name}</div>
             <div className="truncate text-meta text-muted">{subtitle}</div>
@@ -200,6 +200,10 @@ export const Chat = observer(function Chat() {
           </button>
           <input ref={fileRef} hidden type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onChange={(e) => void attach(e.target.files?.[0])} />
           <input
+            name="chat-message"
+            autoComplete="off"
+            autoCapitalize="sentences"
+            enterKeyHint="send"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {

@@ -65,7 +65,7 @@ export const InviteLink = observer(function InviteLink() {
 
       <ScrollArea>
         <div className="flex flex-col items-center gap-2.5 px-5 pt-3 pb-6">
-          <Avatar initials={chat.initials} color={chat.color} size={80} fontSize={24} />
+          <Avatar initials={chat.initials} color={chat.color} size={80} fontSize={24} src={chat.avatarUrl} />
           <div className="text-[18px] font-semibold text-ink">{chat.name}</div>
         </div>
 

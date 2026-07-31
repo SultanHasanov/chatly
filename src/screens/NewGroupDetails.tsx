@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite'
 import { Camera, Check } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
 import { Screen, ScrollArea } from '../components/Screen'
@@ -13,10 +13,14 @@ export const NewGroupDetails = observer(function NewGroupDetails() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [avatar, setAvatar] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState('')
+  const avatarInput = useRef<HTMLInputElement>(null)
 
   const create = async () => {
     if (!name.trim() || !session.user) return
     const chat = await chats.createGroupRemote(name.trim(), session.user, description.trim() || undefined)
+    if (avatar) await chats.setGroupAvatar(chat.id, session.user.id, avatar)
     contacts.reset()
     navigate(`/chats/${chat.id}`, { replace: true })
   }
@@ -27,12 +31,17 @@ export const NewGroupDetails = observer(function NewGroupDetails() {
 
       <ScrollArea>
         <div className="flex items-center gap-4 px-5 pt-6 pb-2">
-          <div
-            className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full"
+          <button type="button" onClick={() => avatarInput.current?.click()}
+            className="flex h-[76px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-full"
             style={{ background: 'var(--c-bg-field)' }}
           >
-            <Camera size={28} strokeWidth={1.7} className="text-faint" />
-          </div>
+            {avatarPreview ? <img src={avatarPreview} alt="" className="h-full w-full object-cover" /> : <Camera size={28} strokeWidth={1.7} className="text-faint" />}
+          </button>
+          <input ref={avatarInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+            const file = event.target.files?.[0] ?? null
+            setAvatar(file)
+            setAvatarPreview(file ? URL.createObjectURL(file) : '')
+          }} />
           <input
             autoFocus
             value={name}

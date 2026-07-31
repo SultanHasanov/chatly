@@ -4,7 +4,7 @@ import { CONTACTS, DESIGN_TEAM_MEMBERS, seedChats, seedMessages } from '../data/
 import { initialsOf, randomCode } from '../lib/format'
 import type { Chat, Member, Message, Quote, SessionUser } from '../types'
 import { supabase, supabaseConfigured } from '../lib/supabase'
-import { uploadChatFile } from '../lib/uploads'
+import { uploadChatFile, uploadGroupAvatar } from '../lib/uploads'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface Snapshot {
@@ -227,6 +227,46 @@ export class ChatStore {
     return data as string
   }
 
+  async renameGroup(chatId: string, name: string, description?: string) {
+    const chat = this.chatById(chatId)
+    if (!chat) throw new Error('Группа не найдена')
+    const cleanName = name.trim()
+    if (!cleanName) throw new Error('Введите название группы')
+    if (supabaseConfigured) {
+      const { error } = await supabase.rpc('rename_group', {
+        target: chatId,
+        new_name: cleanName,
+        new_description: description?.trim() || null,
+      })
+      if (error) throw error
+    }
+    chat.name = cleanName
+    chat.initials = initialsOf(cleanName)
+    chat.description = description?.trim() || undefined
+  }
+
+  async deleteGroup(chatId: string) {
+    if (supabaseConfigured) {
+      const { error } = await supabase.rpc('delete_group', { target: chatId })
+      if (error) throw error
+    }
+    this.chats = this.chats.filter((chat) => chat.id !== chatId)
+    this.messages = this.messages.filter((message) => message.chatId !== chatId)
+    delete this.extraMembers[chatId]
+  }
+
+  async setGroupAvatar(chatId: string, userId: string, file: File) {
+    const chat = this.chatById(chatId)
+    if (!chat) throw new Error('Группа не найдена')
+    if (!supabaseConfigured) {
+      chat.avatarUrl = URL.createObjectURL(file)
+      return
+    }
+    const result = await uploadGroupAvatar(userId, chatId, file)
+    chat.avatarPath = result.path
+    chat.avatarUrl = result.url
+  }
+
   async syncFromSupabase(currentUser: SessionUser) {
     if (!supabaseConfigured) return
     const memberships = await supabase.from('conversation_members').select('conversation_id,pinned').eq('user_id', currentUser.id)
@@ -249,8 +289,13 @@ export class ChatStore {
       const directOther = members.find((row) => row.user_id !== currentUser.id)
       const directProfile = directOther ? profileMap.get(directOther.user_id) : undefined
       const name = conversation.kind === 'direct' ? directProfile?.display_name ?? 'Личный чат' : conversation.name
-      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: memberships.data?.find((row) => row.conversation_id === conversation.id)?.pinned ?? false, unreadCount: 0, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0 }
+      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: memberships.data?.find((row) => row.conversation_id === conversation.id)?.pinned ?? false, unreadCount: 0, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath: conversation.avatar_path ?? undefined }
     })
+    await Promise.all(this.chats.map(async (chat) => {
+      if (!chat.avatarPath) return
+      const signed = await supabase.storage.from('avatars').createSignedUrl(chat.avatarPath, 3600)
+      chat.avatarUrl = signed.data?.signedUrl
+    }))
     this.extraMembers = Object.fromEntries(this.chats.map((chat) => [chat.id, (memberRows.data ?? []).filter((row) => row.conversation_id === chat.id).map((row) => {
       const profile = profileMap.get(row.user_id)
       const memberName = profile?.display_name ?? 'Участник'

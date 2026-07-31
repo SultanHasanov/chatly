@@ -44,3 +44,15 @@ export async function uploadAvatar(userId: string, file: File) {
   if (updated.error) throw updated.error
   return path
 }
+
+export async function uploadGroupAvatar(userId: string, conversationId: string, file: File) {
+  validateUpload(file, 'image')
+  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const path = `${userId}/groups/${conversationId}-${Date.now()}.${extension}`
+  const uploaded = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type })
+  if (uploaded.error) throw uploaded.error
+  const updated = await supabase.from('conversations').update({ avatar_path: path }).eq('id', conversationId)
+  if (updated.error) throw updated.error
+  const signed = await supabase.storage.from('avatars').createSignedUrl(path, 3600)
+  return { path, url: signed.data?.signedUrl }
+}

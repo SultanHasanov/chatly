@@ -21,7 +21,7 @@ export function ChatRow({
       onClick={onClick}
       className="tap flex w-full items-center gap-3 border-b border-divider-soft px-5 py-2.5 text-left"
     >
-      <Avatar initials={chat.initials} color={chat.color} size={49} fontSize={17} />
+      <Avatar initials={chat.initials} color={chat.color} size={49} fontSize={17} src={chat.avatarUrl} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           {chat.pinned && <Pin size={12} className="shrink-0 text-faint" strokeWidth={1.8} />}
