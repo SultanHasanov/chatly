@@ -1,0 +1,144 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Палитра прототипа (мини-гайд). Переопределяется в .dark. */
+:root {
+  --c-accent: #25d366;
+  --c-accent-deep: #128c7e;
+  --c-accent-pressed: #1da851;
+  --c-bg: #ffffff;
+  --c-bg-sunken: #f2f1ee;
+  --c-bg-field: #f0f2f1;
+  --c-chat-bg: #ece5dd;
+  --c-bubble-in: #ffffff;
+  --c-bubble-out: #d9fdd3;
+  --c-text: #111b21;
+  --c-text-muted: #667781;
+  --c-text-faint: #8696a0;
+  --c-divider: #e9edef;
+  --c-divider-soft: #f2f1ee;
+  --c-danger: #d9534f;
+  --c-disabled: #d8dcde;
+  --c-disabled-text: #9aa3a8;
+  --c-tick: #4fa8e8;
+  --c-bar: #ffffff;
+  --c-chip: rgba(0, 0, 0, 0.07);
+  --c-chip-text: #54656f;
+  --c-quote: rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --c-accent: #25d366;
+  --c-accent-deep: #25d366;
+  --c-accent-pressed: #1da851;
+  --c-bg: #111b21;
+  --c-bg-sunken: #0b141a;
+  --c-bg-field: #1f2c34;
+  --c-chat-bg: #0b141a;
+  --c-bubble-in: #1f2c34;
+  --c-bubble-out: #005c4b;
+  --c-text: #e9edef;
+  --c-text-muted: #8696a0;
+  --c-text-faint: #8696a0;
+  --c-divider: #2a3942;
+  --c-divider-soft: #1f2c34;
+  --c-danger: #f2726f;
+  --c-disabled: #2a3942;
+  --c-disabled-text: #6b7a83;
+  --c-tick: #53bdeb;
+  --c-bar: #1f2c34;
+  --c-chip: rgba(255, 255, 255, 0.08);
+  --c-chip-text: #c5cbd1;
+  --c-quote: rgba(255, 255, 255, 0.06);
+}
+
+@theme inline {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --color-accent: var(--c-accent);
+  --color-accent-deep: var(--c-accent-deep);
+  --color-accent-pressed: var(--c-accent-pressed);
+  --color-surface: var(--c-bg);
+  --color-sunken: var(--c-bg-sunken);
+  --color-field: var(--c-bg-field);
+  --color-chat: var(--c-chat-bg);
+  --color-bubble-in: var(--c-bubble-in);
+  --color-bubble-out: var(--c-bubble-out);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-faint: var(--c-text-faint);
+  --color-divider: var(--c-divider);
+  --color-divider-soft: var(--c-divider-soft);
+  --color-danger: var(--c-danger);
+  --color-disabled: var(--c-disabled);
+  --color-disabled-ink: var(--c-disabled-text);
+  --color-tick: var(--c-tick);
+  --color-bar: var(--c-bar);
+  --color-chip: var(--c-chip);
+  --color-chip-ink: var(--c-chip-text);
+  --color-quote: var(--c-quote);
+
+  /* Типошкала прототипа */
+  --text-caption: 11px;
+  --text-meta: 12px;
+  --text-note: 13px;
+  --text-label: 14px;
+  --text-body: 15px;
+  --text-item: 16px;
+  --text-title: 17px;
+  --text-heading: 19px;
+  --text-display: 26px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg-sunken);
+  color: var(--c-text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+input:focus,
+textarea:focus,
+button:focus-visible {
+  outline: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.tap {
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+.tap:active {
+  opacity: 0.7;
+}

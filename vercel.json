@@ -1,0 +1,40 @@
+{
+  "rewrites": [
+    {
+      "source": "/supabase/auth/v1/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/auth/v1/:path*"
+    },
+    {
+      "source": "/supabase/rest/v1/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/rest/v1/:path*"
+    },
+    {
+      "source": "/supabase/storage/v1/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/storage/v1/:path*"
+    },
+    {
+      "source": "/supabase/functions/v1/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/functions/v1/:path*"
+    },
+    {
+      "source": "/supabase/realtime/v1/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/realtime/v1/:path*"
+    },
+    {
+      "source": "/supabase/:path*",
+      "destination": "https://mcbrchalqroqixisffqs.supabase.co/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/supabase/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}
