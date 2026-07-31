@@ -17,10 +17,10 @@ export function Fab({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="tap flex h-14 w-14 items-center justify-center rounded-full shadow-lg disabled:shadow-none"
+      className="tap flex h-14 w-14 items-center justify-center rounded-[18px] disabled:shadow-none"
       style={{
         background: disabled ? 'var(--c-disabled)' : 'var(--c-accent)',
-        boxShadow: disabled ? 'none' : '0 6px 16px rgba(37,211,102,0.5)',
+        boxShadow: disabled ? 'none' : '0 4px 12px rgba(0,0,0,0.4)',
       }}
     >
       <Icon

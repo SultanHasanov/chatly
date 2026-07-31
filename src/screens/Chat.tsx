@@ -1,5 +1,16 @@
 import { observer } from 'mobx-react-lite'
-import { Camera, ChevronLeft, Mic, MoreVertical, Paperclip, Send, Video, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Camera,
+  Mic,
+  MoreVertical,
+  Paperclip,
+  Phone,
+  Send,
+  Smile,
+  Video,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
@@ -124,27 +135,30 @@ export const Chat = observer(function Chat() {
   let lastDay = ''
 
   return (
-    <Screen className="bg-chat">
+    <Screen className="chat-doodle">
       <header
-        className="flex shrink-0 items-center gap-2.5 border-b border-divider bg-bar px-3.5 pt-1.5 pb-2.5"
+        className="flex shrink-0 items-center gap-3 px-3 pt-1.5 pb-2.5"
         style={{ background: 'var(--c-bar)' }}
       >
         <button type="button" aria-label="Назад" className="tap" onClick={() => navigate('/chats')}>
-          <ChevronLeft size={22} strokeWidth={2} style={{ color: 'var(--c-accent-deep)' }} />
+          <ArrowLeft size={22} strokeWidth={2} className="text-ink" />
         </button>
         <button
           type="button"
           className="tap flex min-w-0 flex-1 items-center gap-2.5 text-left"
           onClick={() => navigate(`/chats/${chat.id}/info`)}
         >
-          <Avatar initials={chat.initials} color={chat.color} size={38} fontSize={14} src={chat.avatarUrl} />
+          <Avatar initials={chat.initials} color={chat.color} size={40} fontSize={15} src={chat.avatarUrl} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-item font-semibold text-ink">{chat.name}</div>
             <div className="truncate text-meta text-muted">{subtitle}</div>
           </div>
         </button>
         <button type="button" aria-label="Видеозвонок" className="tap">
-          <Video size={20} strokeWidth={1.7} style={{ color: 'var(--c-accent-deep)' }} />
+          <Video size={22} strokeWidth={1.7} className="text-ink" />
+        </button>
+        <button type="button" aria-label="Звонок" className="tap">
+          <Phone size={20} strokeWidth={1.7} className="text-ink" />
         </button>
         <button
           type="button"
@@ -152,7 +166,7 @@ export const Chat = observer(function Chat() {
           className="tap"
           onClick={() => navigate(`/chats/${chat.id}/info`)}
         >
-          <MoreVertical size={18} strokeWidth={2.4} style={{ color: 'var(--c-accent-deep)' }} />
+          <MoreVertical size={18} strokeWidth={2.4} className="text-ink" />
         </button>
       </header>
 
@@ -208,40 +222,52 @@ export const Chat = observer(function Chat() {
 
         {uploadError && <div className="mb-1 text-center text-note" style={{ color: 'var(--c-danger)' }}>{uploadError}</div>}
         {recording && <div className="mb-1 text-center text-note text-muted">Идёт запись… нажмите ещё раз для отправки</div>}
-        <div className="flex items-center gap-2.5">
-          <button type="button" aria-label="Вложение" className="tap" onClick={() => fileRef.current?.click()}>
-            <Paperclip size={24} strokeWidth={1.6} className="text-muted" />
-          </button>
-          <input ref={fileRef} hidden type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onChange={(e) => void attach(e.target.files?.[0])} />
-          <input
-            name="chat-message"
-            autoComplete="off"
-            autoCapitalize="sentences"
-            enterKeyHint="send"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void send()
-            }}
-            placeholder="Сообщение"
-            className="h-10 flex-1 rounded-full px-3.5 text-body placeholder:text-faint"
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[24px] pr-3.5 pl-3"
             style={{ background: 'var(--c-bar)' }}
-          />
-          {!text && (
-            <button type="button" aria-label="Камера" className="tap">
-              <Camera size={22} strokeWidth={1.6} className="text-muted" />
+          >
+            <button type="button" aria-label="Эмодзи" className="tap shrink-0">
+              <Smile size={24} strokeWidth={1.6} className="text-muted" />
             </button>
-          )}
+            <input
+              name="chat-message"
+              autoComplete="off"
+              autoCapitalize="sentences"
+              enterKeyHint="send"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void send()
+              }}
+              placeholder="Сообщение"
+              className="min-w-0 flex-1 text-body placeholder:text-faint"
+            />
+            <button
+              type="button"
+              aria-label="Вложение"
+              className="tap shrink-0"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Paperclip size={22} strokeWidth={1.6} className="text-muted" />
+            </button>
+            {!text && (
+              <button type="button" aria-label="Камера" className="tap shrink-0">
+                <Camera size={22} strokeWidth={1.6} className="text-muted" />
+              </button>
+            )}
+          </div>
+          <input ref={fileRef} hidden type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt" onChange={(e) => void attach(e.target.files?.[0])} />
           <button
             type="button"
             aria-label={text ? 'Отправить' : 'Голосовое сообщение'}
             onClick={text ? () => void send() : () => void toggleRecording()}
-            className="tap flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent"
+            className="tap flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent"
           >
             {text ? (
-              <Send size={18} strokeWidth={1.9} color="#fff" />
+              <Send size={20} strokeWidth={1.9} color="#fff" />
             ) : (
-              <Mic size={18} strokeWidth={1.7} color="#fff" />
+              <Mic size={20} strokeWidth={1.7} color="#fff" />
             )}
           </button>
         </div>

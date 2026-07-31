@@ -30,14 +30,19 @@
   --c-chip: rgba(0, 0, 0, 0.07);
   --c-chip-text: #54656f;
   --c-quote: rgba(0, 0, 0, 0.05);
+  --c-nav-bg: #ffffff;
+  --c-nav-active-pill: #d9fdd3;
+  --c-nav-active-ink: #111b21;
+  --c-nav-ink: #667781;
+  --c-doodle: rgba(0, 0, 0, 0.05);
 }
 
 .dark {
-  --c-accent: #25d366;
-  --c-accent-deep: #25d366;
+  --c-accent: #21c063;
+  --c-accent-deep: #21c063;
   --c-accent-pressed: #1da851;
-  --c-bg: #111b21;
-  --c-bg-sunken: #0b141a;
+  --c-bg: #0b141a;
+  --c-bg-sunken: #000000;
   --c-bg-field: #1f2c34;
   --c-chat-bg: #0b141a;
   --c-bubble-in: #1f2c34;
@@ -45,8 +50,8 @@
   --c-text: #e9edef;
   --c-text-muted: #8696a0;
   --c-text-faint: #8696a0;
-  --c-divider: #2a3942;
-  --c-divider-soft: #1f2c34;
+  --c-divider: #222d34;
+  --c-divider-soft: #1a242b;
   --c-danger: #f2726f;
   --c-disabled: #2a3942;
   --c-disabled-text: #6b7a83;
@@ -55,6 +60,11 @@
   --c-chip: rgba(255, 255, 255, 0.08);
   --c-chip-text: #c5cbd1;
   --c-quote: rgba(255, 255, 255, 0.06);
+  --c-nav-bg: #0b141a;
+  --c-nav-active-pill: #103529;
+  --c-nav-active-ink: #e9edef;
+  --c-nav-ink: #8696a0;
+  --c-doodle: rgba(255, 255, 255, 0.045);
 }
 
 @theme inline {
@@ -82,6 +92,10 @@
   --color-chip: var(--c-chip);
   --color-chip-ink: var(--c-chip-text);
   --color-quote: var(--c-quote);
+  --color-nav: var(--c-nav-bg);
+  --color-nav-pill: var(--c-nav-active-pill);
+  --color-nav-active-ink: var(--c-nav-active-ink);
+  --color-nav-ink: var(--c-nav-ink);
 
   /* Типошкала прототипа */
   --text-caption: 11px;
@@ -133,6 +147,20 @@ button:focus-visible {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* Фон переписки: тайл с тонкими контурными «дудлами», как в WhatsApp. */
+.chat-doodle {
+  background-color: var(--c-chat-bg);
+  background-image: var(--doodle-image);
+  background-size: 260px 260px;
+  background-repeat: repeat;
+}
+:root {
+  --doodle-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='rgba(0,0,0,0.05)' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M28 34c-6-7-16-3-16 5 0 8 12 15 16 19 4-4 16-11 16-19 0-8-10-12-16-5z'/%3E%3Cpath d='M92 20l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E%3Ccircle cx='168' cy='30' r='13'/%3E%3Cpath d='M162 28a2 2 0 0 1 4 0M170 28a2 2 0 0 1 4 0M162 36c3 4 9 4 12 0'/%3E%3Cpath d='M218 22h30v20h-30z'/%3E%3Cpath d='M218 22l15 12 15-12'/%3E%3Cpath d='M24 92h26v22H24z'/%3E%3Cpath d='M50 97h7v8h-7'/%3E%3Cpath d='M30 86v-8M38 86v-8M46 86v-8'/%3E%3Cpath d='M96 118V88l18-4v30'/%3E%3Ccircle cx='92' cy='118' r='5'/%3E%3Ccircle cx='110' cy='114' r='5'/%3E%3Cpath d='M170 84c-14 4-20 18-14 28 12 6 26-2 28-16 1-8-6-14-14-12z'/%3E%3Cpath d='M156 112c8-8 14-14 20-16'/%3E%3Cpath d='M222 86l14 8v18l-14 8-14-8V94z'/%3E%3Cpath d='M30 168c0-10 9-18 20-18s20 8 20 18-9 18-20 18h-8l-9 7v-9c-2-4-3-9-3-16z'/%3E%3Cpath d='M104 152h28v28h-28z' rx='4'/%3E%3Cpath d='M110 160h16M110 168h16'/%3E%3Cpath d='M180 148v34M172 156l8-8 8 8'/%3E%3Ccircle cx='232' cy='164' r='14'/%3E%3Cpath d='M232 156v9l6 4'/%3E%3Cpath d='M26 228c8-12 22-12 30 0-8 12-22 12-30 0z'/%3E%3Ccircle cx='41' cy='228' r='4'/%3E%3Cpath d='M92 244c0-12 6-22 16-26 10 4 16 14 16 26'/%3E%3Cpath d='M108 218v-8'/%3E%3Cpath d='M166 212l20 10-20 10z'/%3E%3Cpath d='M162 236h34'/%3E%3Cpath d='M216 216h30v24h-30z'/%3E%3Cpath d='M222 226h6M234 226h6M222 234h18'/%3E%3C/svg%3E");
+}
+.dark {
+  --doodle-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260' fill='none' stroke='rgba(255,255,255,0.045)' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M28 34c-6-7-16-3-16 5 0 8 12 15 16 19 4-4 16-11 16-19 0-8-10-12-16-5z'/%3E%3Cpath d='M92 20l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z'/%3E%3Ccircle cx='168' cy='30' r='13'/%3E%3Cpath d='M162 28a2 2 0 0 1 4 0M170 28a2 2 0 0 1 4 0M162 36c3 4 9 4 12 0'/%3E%3Cpath d='M218 22h30v20h-30z'/%3E%3Cpath d='M218 22l15 12 15-12'/%3E%3Cpath d='M24 92h26v22H24z'/%3E%3Cpath d='M50 97h7v8h-7'/%3E%3Cpath d='M30 86v-8M38 86v-8M46 86v-8'/%3E%3Cpath d='M96 118V88l18-4v30'/%3E%3Ccircle cx='92' cy='118' r='5'/%3E%3Ccircle cx='110' cy='114' r='5'/%3E%3Cpath d='M170 84c-14 4-20 18-14 28 12 6 26-2 28-16 1-8-6-14-14-12z'/%3E%3Cpath d='M156 112c8-8 14-14 20-16'/%3E%3Cpath d='M222 86l14 8v18l-14 8-14-8V94z'/%3E%3Cpath d='M30 168c0-10 9-18 20-18s20 8 20 18-9 18-20 18h-8l-9 7v-9c-2-4-3-9-3-16z'/%3E%3Cpath d='M104 152h28v28h-28z' rx='4'/%3E%3Cpath d='M110 160h16M110 168h16'/%3E%3Cpath d='M180 148v34M172 156l8-8 8 8'/%3E%3Ccircle cx='232' cy='164' r='14'/%3E%3Cpath d='M232 156v9l6 4'/%3E%3Cpath d='M26 228c8-12 22-12 30 0-8 12-22 12-30 0z'/%3E%3Ccircle cx='41' cy='228' r='4'/%3E%3Cpath d='M92 244c0-12 6-22 16-26 10 4 16 14 16 26'/%3E%3Cpath d='M108 218v-8'/%3E%3Cpath d='M166 212l20 10-20 10z'/%3E%3Cpath d='M162 236h34'/%3E%3Cpath d='M216 216h30v24h-30z'/%3E%3Cpath d='M222 226h6M234 226h6M222 234h18'/%3E%3C/svg%3E");
 }
 
 .tap {

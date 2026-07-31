@@ -1,7 +1,15 @@
-import { CheckCheck, Pin } from 'lucide-react'
+import { Camera, Check, CheckCheck, FileText, Mic, Pin, Video } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Avatar } from './Avatar'
 import { formatChatTime } from '../lib/format'
 import type { Chat, Message } from '../types'
+
+const ATTACHMENT_ICON: Record<string, LucideIcon> = {
+  image: Camera,
+  video: Video,
+  voice: Mic,
+  document: FileText,
+}
 
 export function ChatRow({
   chat,
@@ -15,21 +23,25 @@ export function ChatRow({
   onClick: () => void
 }) {
   const unread = chat.unreadCount > 0
+  const AttachmentIcon = last?.attachment ? ATTACHMENT_ICON[last.attachment.kind] : undefined
   return (
     <button
       type="button"
       onClick={onClick}
-      className="tap flex w-full items-center gap-3 border-b border-divider-soft px-5 py-2.5 text-left"
+      className="tap flex w-full items-center gap-3 px-4 py-2.5 text-left"
     >
-      <Avatar initials={chat.initials} color={chat.color} size={49} fontSize={17} src={chat.avatarUrl} />
+      <Avatar initials={chat.initials} color={chat.color} size={56} fontSize={20} src={chat.avatarUrl} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          {chat.pinned && <Pin size={12} className="shrink-0 text-faint" strokeWidth={1.8} />}
-          <div className="truncate text-title font-medium text-ink">{chat.name}</div>
-        </div>
+        <div className="truncate text-title font-semibold text-ink">{chat.name}</div>
         <div className="mt-0.5 flex items-center gap-1">
-          {last?.outgoing && last.status === 'read' && (
-            <CheckCheck size={16} strokeWidth={1.8} style={{ color: 'var(--c-accent-deep)' }} />
+          {last?.outgoing &&
+            (last.status === 'read' ? (
+              <CheckCheck size={16} strokeWidth={1.8} className="shrink-0" style={{ color: 'var(--c-tick)' }} />
+            ) : (
+              <Check size={16} strokeWidth={1.8} className="shrink-0 text-faint" />
+            ))}
+          {AttachmentIcon && (
+            <AttachmentIcon size={15} strokeWidth={1.8} className="shrink-0" style={{ color: 'var(--c-tick)' }} />
           )}
           <div className="truncate text-body text-muted">{preview}</div>
         </div>
@@ -41,10 +53,12 @@ export function ChatRow({
         >
           {last ? formatChatTime(last.ts) : ''}
         </div>
-        {unread && (
+        {unread ? (
           <div className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-meta font-semibold text-white">
             {chat.unreadCount}
           </div>
+        ) : (
+          chat.pinned && <Pin size={14} className="text-faint" strokeWidth={1.8} />
         )}
       </div>
     </button>

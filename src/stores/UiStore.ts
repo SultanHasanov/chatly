@@ -2,7 +2,7 @@ import { makeAutoObservable } from 'mobx'
 import { loadState, persist } from '../lib/persist'
 import type { ThemeMode } from '../types'
 
-type Tab = 'chats' | 'status' | 'calls'
+type Tab = 'chats' | 'status' | 'communities' | 'calls'
 
 export class UiStore {
   theme: ThemeMode = 'system'
@@ -41,6 +41,6 @@ export class UiStore {
     document.documentElement.classList.toggle('dark', dark)
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', dark ? '#1F2C34' : '#128C7E')
+      ?.setAttribute('content', dark ? '#0B141A' : '#FFFFFF')
   }
 }

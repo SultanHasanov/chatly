@@ -13,7 +13,7 @@ export function MessageBubble({
 }) {
   const out = message.outgoing
   return (
-    <div className={`flex max-w-[78%] flex-col ${out ? 'self-end' : 'self-start'}`}>
+    <div className={`flex max-w-[80%] flex-col ${out ? 'self-end' : 'self-start'}`}>
       {!out && showAuthor && (
         <div
           className="mb-0.5 ml-1 text-note font-semibold"
@@ -27,7 +27,7 @@ export function MessageBubble({
         className="px-2.5 py-2 shadow-sm"
         style={{
           background: out ? 'var(--c-bubble-out)' : 'var(--c-bubble-in)',
-          borderRadius: out ? '10px 10px 2px 10px' : '10px 10px 10px 2px',
+          borderRadius: out ? '7.5px 0 7.5px 7.5px' : '0 7.5px 7.5px 7.5px',
           padding: message.attachment ? 6 : undefined,
         }}
       >
@@ -71,12 +71,14 @@ export function MessageBubble({
         )}
 
         <div className="mt-0.5 flex items-center justify-end gap-1">
-          <span className="text-caption text-muted">{formatTime(message.ts)}</span>
+          <span className="text-[11px] text-faint">{formatTime(message.ts)}</span>
           {out &&
             (message.status === 'read' ? (
               <CheckCheck size={15} strokeWidth={1.8} style={{ color: 'var(--c-tick)' }} />
+            ) : message.status === 'delivered' ? (
+              <CheckCheck size={15} strokeWidth={1.8} className="text-faint" />
             ) : (
-              <Check size={15} strokeWidth={1.8} className="text-muted" />
+              <Check size={15} strokeWidth={1.8} className="text-faint" />
             ))}
         </div>
       </div>
