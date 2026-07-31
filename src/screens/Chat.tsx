@@ -47,8 +47,12 @@ export const Chat = observer(function Chat() {
   }, [chat, chatId, chats, session.user])
 
   useEffect(() => {
-    if (chat) chats.markRead(chat.id)
-  }, [chat, chats, list.length])
+    if (chat && session.user) {
+      void chats.markRead(chat.id, session.user.id).catch(() => {
+        // Keep the optimistic local state; the next successful open retries it.
+      })
+    }
+  }, [chat, chats, list.length, session.user])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })

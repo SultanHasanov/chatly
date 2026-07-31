@@ -22,6 +22,7 @@ export class ChatStore {
   private reconciliationTimer: ReturnType<typeof setInterval> | null = null
   private syncPromise: Promise<void> | null = null
   private lastSyncAt = 0
+  private readAtOverrides = new Map<string, number>()
 
   constructor() {
     makeAutoObservable(this)
@@ -126,7 +127,7 @@ export class ChatStore {
         status: 'sent',
       })
     }
-    this.markRead(chatId)
+    await this.markRead(chatId, author.id)
   }
 
   async sendAttachment(chatId: string, file: File, author: SessionUser, caption = '') {
@@ -145,14 +146,19 @@ export class ChatStore {
     if (attachment.error) throw attachment.error
   }
 
-  markRead(chatId: string) {
+  async markRead(chatId: string, userId?: string) {
     const chat = this.chatById(chatId)
     if (chat) chat.unreadCount = 0
+    const readAt = new Date().toISOString()
+    this.readAtOverrides.set(chatId, Date.parse(readAt))
     if (supabaseConfigured) {
-      void supabase
+      let query = supabase
         .from('conversation_members')
-        .update({ last_read_at: new Date().toISOString() })
+        .update({ last_read_at: readAt })
         .eq('conversation_id', chatId)
+      if (userId) query = query.eq('user_id', userId)
+      const { error } = await query
+      if (error) throw error
     }
   }
 
@@ -323,7 +329,12 @@ export class ChatStore {
       const directProfile = directOther ? profileMap.get(directOther.user_id) : undefined
       const name = conversation.kind === 'direct' ? directProfile?.display_name ?? 'Личный чат' : conversation.name
       const membership = memberships.data?.find((row) => row.conversation_id === conversation.id)
-      const lastReadAt = new Date(membership?.last_read_at ?? 0).getTime()
+      // A sync started before markRead can contain the old server value. Keep the
+      // newer local cutoff so returning to the list cannot resurrect the badge.
+      const lastReadAt = Math.max(
+        new Date(membership?.last_read_at ?? 0).getTime(),
+        this.readAtOverrides.get(conversation.id) ?? 0,
+      )
       const unreadCount = (messageRows.data ?? []).filter((message) =>
         message.conversation_id === conversation.id &&
         message.author_id !== currentUser.id &&
