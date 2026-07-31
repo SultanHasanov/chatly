@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite'
 import { Bell, Camera, Database, LogOut, MessageCircle, Moon, Shield, User } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
 import { Avatar } from '../components/Avatar'
@@ -9,7 +9,7 @@ import { Screen, ScrollArea } from '../components/Screen'
 import { TopBar } from '../components/TopBar'
 import type { ThemeMode } from '../types'
 import { uploadAvatar } from '../lib/uploads'
-import { enablePush } from '../lib/push'
+import { enablePush, restorePushSubscription } from '../lib/push'
 import { supabaseConfigured } from '../lib/supabase'
 
 const THEMES: { id: ThemeMode; label: string }[] = [
@@ -25,6 +25,10 @@ export const Settings = observer(function Settings() {
   const user = session.user
   const avatarInput = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    if (user) void restorePushSubscription(user.id).catch(() => undefined)
+  }, [user])
 
   const chooseAvatar = async (file?: File) => {
     if (!file || !user || !supabaseConfigured) return

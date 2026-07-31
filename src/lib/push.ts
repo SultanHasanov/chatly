@@ -15,10 +15,15 @@ export async function enablePush(userId: string) {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') throw new Error('Доступ к уведомлениям не предоставлен')
   const registration = await navigator.serviceWorker.ready
-  const subscription = await registration.pushManager.subscribe({
+  const current = await registration.pushManager.getSubscription()
+  const subscription = current ?? await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: decodeBase64Url(key),
   })
+  await savePushSubscription(userId, subscription)
+}
+
+async function savePushSubscription(userId: string, subscription: PushSubscription) {
   const json = subscription.toJSON()
   const { error } = await supabase.from('push_subscriptions').upsert({
     user_id: userId,
@@ -29,4 +34,13 @@ export async function enablePush(userId: string) {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' })
   if (error) throw error
+}
+
+export async function restorePushSubscription(userId: string) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted') return false
+  const registration = await navigator.serviceWorker.ready
+  const subscription = await registration.pushManager.getSubscription()
+  if (!subscription) return false
+  await savePushSubscription(userId, subscription)
+  return true
 }
