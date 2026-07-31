@@ -17,8 +17,8 @@ export default defineConfig({
         importScripts: ['/push-handler.js'],
       },
       manifest: {
-        name: 'Chatly',
-        short_name: 'Chatly',
+        name: 'Chat Brat',
+        short_name: 'Chat Brat',
         description: 'Общайтесь без лишнего',
         lang: 'ru',
         start_url: '/',

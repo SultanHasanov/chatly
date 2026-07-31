@@ -44,7 +44,7 @@ export const Login = observer(function Login() {
 
       <h1 className="text-center text-[20px] font-bold text-ink">Войдите, чтобы начать</h1>
       <p className="text-center text-body leading-relaxed text-muted">
-        Chatly использует ваш Telegram-аккаунт для входа — без пароля и SMS-кода
+        Chat Brat использует ваш Telegram-аккаунт для входа — без пароля и SMS-кода
       </p>
 
       <div className="h-4" />

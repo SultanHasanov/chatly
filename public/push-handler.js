@@ -1,11 +1,11 @@
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Chatly', body: 'Новое сообщение', url: '/chats' }
+  let payload = { title: 'Chat Brat', body: 'Новое сообщение', url: '/chats' }
   try { payload = { ...payload, ...event.data.json() } } catch { /* use safe defaults */ }
   event.waitUntil(self.registration.showNotification(payload.title, {
     body: payload.body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: payload.conversationId ? `chat-${payload.conversationId}` : 'chatly',
+    tag: payload.conversationId ? `chat-${payload.conversationId}` : 'chat-brat',
     data: { url: payload.url },
   }))
 })

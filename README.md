@@ -1,6 +1,6 @@
-# Chatly
+# Chat Brat
 
-PWA-мессенджер, собранный по прототипу `design/Chatly UI.dc.html` (11 экранов, iOS 390×844).
+PWA-мессенджер, собранный по прототипу `design/Chat Brat UI.dc.html` (11 экранов, iOS 390×844).
 
 Стек: React 19 + TypeScript, Vite, Tailwind CSS 4, MobX, react-router, lucide-react, vite-plugin-pwa.
 
@@ -40,20 +40,20 @@ npm run lint
 - гостевой вход по `/join/:code`: виден только этот чат, FAB создания группы задизейблен с подсказкой, в настройках появляется блок «Привязать Telegram»;
 - открытие чата обнуляет счётчик непрочитанных;
 - переключатель темы (светлая / тёмная / как в системе) в настройках, тёмная тема повторяет экран 4b;
-- всё состояние переживает перезагрузку (localStorage, ключи `chatly:*`).
+- всё состояние переживает перезагрузку (localStorage, ключи `chat-brat:*`).
 
 ## Данные
 
 Бэкенда нет. Моки перенесены 1:1 из прототипа в `src/data/mock.ts`, состояние живёт в MobX-сторах
 (`src/stores/`) и сохраняется в localStorage через `src/lib/persist.ts`. Чтобы сбросить состояние —
-очистить ключи `chatly:*` в DevTools → Application → Local Storage.
+очистить ключи `chat-brat:*` в DevTools → Application → Local Storage.
 
 ## Telegram-вход
 
 ## Supabase backend
 
 1. Создайте проект Supabase и включите Authentication → Anonymous Sign-Ins.
-2. Примените миграцию `supabase/migrations/202607310001_chatly_backend.sql` через Supabase CLI или SQL Editor.
+2. Примените миграцию `supabase/migrations/202607310001_chat_brat_backend.sql` через Supabase CLI или SQL Editor.
 3. Разверните Edge Functions `telegram-auth` и `send-push`.
 4. Добавьте frontend-переменные из `.env.example` в `.env`.
 5. Добавьте секреты Edge Functions: `TELEGRAM_BOT_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_WEBHOOK_SECRET`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` автоматически доступны в размещённых функциях.

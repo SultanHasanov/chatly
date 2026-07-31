@@ -43,7 +43,7 @@ export const ChatList = observer(function ChatList() {
         {search === null ? (
           <>
             <div className="flex items-center gap-2">
-              <h1 className="text-display font-bold text-ink">Chatly</h1>
+              <h1 className="text-display font-bold text-ink">Chat Brat</h1>
               {guest && (
                 <span
                   className="rounded-md px-2 py-[3px] text-caption font-semibold text-muted"

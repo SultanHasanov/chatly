@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
   if (!recipients.length) return Response.json({ delivered: 0 })
   const { data: subscriptions } = await admin.from('push_subscriptions').select('*').in('user_id', recipients)
   webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT')!, Deno.env.get('VAPID_PUBLIC_KEY')!, Deno.env.get('VAPID_PRIVATE_KEY')!)
-  const title = conversation?.kind === 'group' ? `${author?.display_name} · ${conversation.name}` : author?.display_name || 'Chatly'
+  const title = conversation?.kind === 'group' ? `${author?.display_name} · ${conversation.name}` : author?.display_name || 'Chat Brat'
   const preview = message.body || ({ image: '📷 Фото', video: '🎬 Видео', document: '📎 Документ', voice: '🎤 Голосовое сообщение' }[message.kind] ?? 'Новое сообщение')
   let delivered = 0
   await Promise.all((subscriptions ?? []).map(async (subscription) => {

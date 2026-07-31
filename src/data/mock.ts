@@ -1,6 +1,6 @@
 import type { Chat, Contact, Member, Message, SessionUser } from '../types'
 
-/** Данные перенесены 1:1 из прототипа `design/Chatly UI.dc.html`. */
+/** Данные перенесены 1:1 из прототипа `design/Chat Brat UI.dc.html`. */
 
 export const ME: SessionUser = {
   id: 'me',

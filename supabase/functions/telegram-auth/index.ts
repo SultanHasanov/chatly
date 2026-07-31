@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
     const sourceUser = bearer ? (await admin.auth.getUser(bearer)).data.user : null
-    const email = `telegram-${fields.id}@auth.chatly.invalid`
+    const email = `telegram-${fields.id}@auth.chatbrat.invalid`
     const name = [fields.first_name, fields.last_name].filter(Boolean).join(' ')
     const generated = await admin.auth.admin.generateLink({ type: 'magiclink', email, options: { data: { display_name: name } } })
     if (generated.error) throw generated.error

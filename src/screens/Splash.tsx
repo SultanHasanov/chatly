@@ -26,7 +26,7 @@ export const Splash = observer(function Splash() {
         <div className="flex h-24 w-24 items-center justify-center rounded-[28px] bg-white">
           <MessageCircle size={52} strokeWidth={1.8} color="#25D366" />
         </div>
-        <div className="text-[30px] font-bold text-white">Chatly</div>
+        <div className="text-[30px] font-bold text-white">Chat Brat</div>
         <div className="text-center text-item" style={{ color: '#EFFFF4' }}>
           Общайтесь без лишнего
         </div>

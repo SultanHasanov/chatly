@@ -1,3 +1,4 @@
+-- Chat Brat database schema
 create extension if not exists pgcrypto;
 
 create type public.conversation_kind as enum ('group', 'direct');

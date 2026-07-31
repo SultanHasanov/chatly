@@ -1,6 +1,6 @@
 import { autorun, toJS } from 'mobx'
 
-const PREFIX = 'chatly:'
+const PREFIX = 'chat-brat:'
 
 export function loadState<T>(key: string): T | null {
   try {
