@@ -23,11 +23,11 @@ export class ChatStore {
   constructor() {
     makeAutoObservable(this)
     const saved = loadState<Snapshot>('chats')
-    if (saved) {
+    if (saved && !supabaseConfigured) {
       this.chats = saved.chats
       this.messages = saved.messages
       this.extraMembers = saved.extraMembers ?? {}
-    } else {
+    } else if (!supabaseConfigured) {
       this.chats = seedChats()
       this.messages = seedMessages()
       this.extraMembers = { design: DESIGN_TEAM_MEMBERS }

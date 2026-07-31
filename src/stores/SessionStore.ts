@@ -14,7 +14,7 @@ export class SessionStore {
   constructor() {
     makeAutoObservable(this)
     const saved = loadState<{ user: SessionUser | null; onboarded: boolean }>('session')
-    if (saved) {
+    if (saved && !supabaseConfigured) {
       this.user = saved.user
       this.onboarded = saved.onboarded
     }
@@ -31,6 +31,7 @@ export class SessionStore {
   private async restoreSupabaseSession() {
     const { data } = await supabase.auth.getSession()
     if (data.session) await this.loadSupabaseUser(data.session.user.id, data.session.user.is_anonymous)
+    else this.user = null
   }
 
   private async loadSupabaseUser(id: string, isAnonymous = false) {
