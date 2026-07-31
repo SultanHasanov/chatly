@@ -55,21 +55,26 @@ export const Chat = observer(function Chat() {
       }`
     : 'в сети'
 
-  const send = () => {
+  const send = async () => {
     if (!session.user) return
-    chats.sendMessage(
-      chat.id,
-      text,
-      session.user,
-      replyTo
-        ? {
-            authorName: replyTo.authorName.split(' ')[0],
-            text: replyTo.attachment ? replyTo.attachment.caption : replyTo.text,
-          }
-        : undefined,
-    )
-    setText('')
-    setReplyTo(null)
+    try {
+      setUploadError('')
+      await chats.sendMessage(
+        chat.id,
+        text,
+        session.user,
+        replyTo
+          ? {
+              authorName: replyTo.authorName.split(' ')[0],
+              text: replyTo.attachment ? replyTo.attachment.caption : replyTo.text,
+            }
+          : undefined,
+      )
+      setText('')
+      setReplyTo(null)
+    } catch (reason) {
+      setUploadError(reason instanceof Error ? reason.message : 'Не удалось отправить сообщение')
+    }
   }
 
   const attach = async (file?: File) => {
@@ -207,7 +212,7 @@ export const Chat = observer(function Chat() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') send()
+              if (e.key === 'Enter') void send()
             }}
             placeholder="Сообщение"
             className="h-10 flex-1 rounded-full px-3.5 text-body placeholder:text-faint"
@@ -221,7 +226,7 @@ export const Chat = observer(function Chat() {
           <button
             type="button"
             aria-label={text ? 'Отправить' : 'Голосовое сообщение'}
-            onClick={text ? send : () => void toggleRecording()}
+            onClick={text ? () => void send() : () => void toggleRecording()}
             className="tap flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent"
           >
             {text ? (

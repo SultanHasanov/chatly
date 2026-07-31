@@ -19,6 +19,7 @@ export class ChatStore {
   /** Участники, добавленные в чат уже в приложении (гости по ссылке, новые группы). */
   extraMembers: Record<string, Member[]> = {}
   private realtime: RealtimeChannel | null = null
+  private reconciliationTimer: ReturnType<typeof setInterval> | null = null
 
   constructor() {
     makeAutoObservable(this)
@@ -90,25 +91,39 @@ export class ChatStore {
     })
   }
 
-  sendMessage(chatId: string, text: string, author: SessionUser, quote?: Quote) {
+  async sendMessage(chatId: string, text: string, author: SessionUser, quote?: Quote) {
     const body = text.trim()
     if (!body) return
-    this.messages.push({
-      id: `m${Date.now()}`,
-      chatId,
-      authorId: author.id,
-      authorName: author.name,
-      authorColor: author.color,
-      text: body,
-      quote,
-      ts: Date.now(),
-      outgoing: true,
-      status: 'sent',
-    })
-    this.markRead(chatId)
     if (supabaseConfigured) {
-      void supabase.from('messages').insert({ conversation_id: chatId, author_id: author.id, kind: 'text', body })
+      const { data, error } = await supabase.from('messages').insert({
+        conversation_id: chatId,
+        author_id: author.id,
+        kind: 'text',
+        body,
+      }).select('id,conversation_id,author_id,body,created_at').single()
+      if (error) throw error
+      if (!this.messages.some((message) => message.id === data.id)) {
+        this.messages.push({
+          id: data.id, chatId: data.conversation_id, authorId: data.author_id,
+          authorName: author.name, authorColor: author.color, text: data.body,
+          quote, ts: new Date(data.created_at).getTime(), outgoing: true, status: 'sent',
+        })
+      }
+    } else {
+      this.messages.push({
+        id: `m${Date.now()}`,
+        chatId,
+        authorId: author.id,
+        authorName: author.name,
+        authorColor: author.color,
+        text: body,
+        quote,
+        ts: Date.now(),
+        outgoing: true,
+        status: 'sent',
+      })
     }
+    this.markRead(chatId)
   }
 
   async sendAttachment(chatId: string, file: File, author: SessionUser, caption = '') {
@@ -312,6 +327,7 @@ export class ChatStore {
 
   private subscribeRealtime(currentUser: SessionUser) {
     if (this.realtime) void supabase.removeChannel(this.realtime)
+    if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
     this.realtime = supabase.channel(`messages:${currentUser.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
       const row = payload.new as Record<string, any>
       if (!this.chats.some((chat) => chat.id === row.conversation_id) || this.messages.some((message) => message.id === row.id)) return
@@ -319,5 +335,22 @@ export class ChatStore {
       const profileMap = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
       this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id))
     }).subscribe()
+    this.reconciliationTimer = setInterval(() => void this.reconcileMessages(currentUser), 5000)
+  }
+
+  private async reconcileMessages(currentUser: SessionUser) {
+    const ids = this.chats.map((chat) => chat.id)
+    if (!ids.length) return
+    const newest = this.messages.reduce((max, message) => Math.max(max, message.ts), 0)
+    let query = supabase.from('messages').select('*').in('conversation_id', ids).is('deleted_at', null).order('created_at')
+    if (newest) query = query.gt('created_at', new Date(newest).toISOString())
+    const { data, error } = await query
+    if (error) return
+    for (const row of data ?? []) {
+      if (this.messages.some((message) => message.id === row.id)) continue
+      const member = this.membersOf(row.conversation_id).find((item) => item.id === row.author_id)
+      const profiles = new Map([[row.author_id, { display_name: member?.name ?? 'Участник' }]])
+      this.messages.push(this.mapRemoteMessage(row, profiles, currentUser.id))
+    }
   }
 }
