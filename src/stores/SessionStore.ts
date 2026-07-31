@@ -8,6 +8,7 @@ import { supabase, supabaseConfigured } from '../lib/supabase'
 
 export class SessionStore {
   user: SessionUser | null = null
+  ready = !supabaseConfigured
   /** Онбординг показывается один раз. */
   onboarded = false
 
@@ -29,9 +30,13 @@ export class SessionStore {
   }
 
   private async restoreSupabaseSession() {
-    const { data } = await supabase.auth.getSession()
-    if (data.session) await this.loadSupabaseUser(data.session.user.id, data.session.user.is_anonymous)
-    else this.user = null
+    try {
+      const { data } = await supabase.auth.getSession()
+      if (data.session) await this.loadSupabaseUser(data.session.user.id, data.session.user.is_anonymous)
+      else this.user = null
+    } finally {
+      this.ready = true
+    }
   }
 
   private async loadSupabaseUser(id: string, isAnonymous = false) {

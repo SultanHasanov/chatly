@@ -230,3 +230,8 @@ alter publication supabase_realtime add table public.messages;
 alter publication supabase_realtime add table public.conversation_members;
 
 grant execute on function public.create_group(text,text), public.preview_invite(text), public.join_group(text,text), public.open_direct(uuid), public.reset_invite(uuid) to authenticated;
+
+grant select on public.profiles, public.conversations, public.conversation_members, public.group_invites, public.messages, public.message_attachments, public.push_subscriptions to authenticated;
+grant insert on public.messages, public.message_attachments, public.push_subscriptions to authenticated;
+grant update on public.profiles, public.conversations, public.conversation_members, public.messages, public.push_subscriptions to authenticated;
+grant delete on public.conversation_members, public.push_subscriptions to authenticated;

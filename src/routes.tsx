@@ -14,6 +14,7 @@ import { Settings } from './screens/Settings'
 
 const RequireAuth = observer(function RequireAuth({ children }: { children: ReactElement }) {
   const { session } = useStores()
+  if (!session.ready) return <div className="flex h-[100dvh] items-center justify-center bg-surface text-label text-muted">Загрузка…</div>
   if (!session.isAuthed) return <Navigate to="/login" replace />
   return children
 })
@@ -21,6 +22,7 @@ const RequireAuth = observer(function RequireAuth({ children }: { children: Reac
 /** Гость с активной сессией не должен снова видеть онбординг. */
 const Entry = observer(function Entry() {
   const { session } = useStores()
+  if (!session.ready) return <div className="flex h-[100dvh] items-center justify-center bg-surface text-label text-muted">Загрузка…</div>
   if (session.isAuthed) return <Navigate to="/chats" replace />
   if (session.onboarded) return <Navigate to="/login" replace />
   return <Splash />

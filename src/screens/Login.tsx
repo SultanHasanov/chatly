@@ -1,7 +1,7 @@
 import { observer } from 'mobx-react-lite'
 import { MessageCircle, Send } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useStores } from '../stores/RootStore'
 import { mountTelegramWidget, telegramConfigured } from '../lib/telegram'
 
@@ -13,6 +13,7 @@ export const Login = observer(function Login() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!session.ready || session.isAuthed) return
     if (!widgetRef.current) return
     return mountTelegramWidget(widgetRef.current, async (data) => {
       try {
@@ -24,6 +25,9 @@ export const Login = observer(function Login() {
       }
     })
   }, [session, navigate])
+
+  if (!session.ready) return <div className="flex h-[100dvh] items-center justify-center bg-surface text-label text-muted">Загрузка…</div>
+  if (session.isAuthed) return <Navigate to="/chats" replace />
 
   const loginMock = () => {
     session.loginAsMockUser()
