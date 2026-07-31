@@ -1,11 +1,14 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import webpush from 'https://esm.sh/web-push@3.6.7'
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { withSupabase } from 'jsr:@supabase/server@^1'
+import { createClient } from 'npm:@supabase/supabase-js@^2'
+import webpush from 'npm:web-push@^3.6.7'
 
-Deno.serve(async (req) => {
-  if (req.headers.get('x-webhook-secret') !== Deno.env.get('PUSH_WEBHOOK_SECRET')) return new Response('Unauthorized', { status: 401 })
-  const body = await req.json()
-  const message = body.record ?? body
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+export default {
+  fetch: withSupabase({ auth: 'none' }, async (req) => {
+    if (req.headers.get('x-webhook-secret') !== Deno.env.get('PUSH_WEBHOOK_SECRET')) return new Response('Unauthorized', { status: 401 })
+    const body = await req.json()
+    const message = body.record ?? body
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const [{ data: conversation }, { data: author }, { data: members }] = await Promise.all([
     admin.from('conversations').select('name,kind').eq('id', message.conversation_id).single(),
     admin.from('profiles').select('display_name').eq('id', message.author_id).single(),
@@ -27,5 +30,6 @@ Deno.serve(async (req) => {
       if (status === 404 || status === 410) await admin.from('push_subscriptions').delete().eq('id', subscription.id)
     }
   }))
-  return Response.json({ delivered })
-})
+    return Response.json({ delivered })
+  }),
+}
