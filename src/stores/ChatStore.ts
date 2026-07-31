@@ -20,11 +20,14 @@ export class ChatStore {
   extraMembers: Record<string, Member[]> = {}
   private realtime: RealtimeChannel | null = null
   private reconciliationTimer: ReturnType<typeof setInterval> | null = null
+  private syncPromise: Promise<void> | null = null
+  private lastSyncAt = 0
 
   constructor() {
     makeAutoObservable(this)
     const saved = loadState<Snapshot>('chats')
-    if (saved && !supabaseConfigured) {
+    // This snapshot is also the read-through cache when Supabase is enabled.
+    if (saved) {
       this.chats = saved.chats
       this.messages = saved.messages
       this.extraMembers = saved.extraMembers ?? {}
@@ -288,8 +291,17 @@ export class ChatStore {
     chat.avatarUrl = result.url
   }
 
-  async syncFromSupabase(currentUser: SessionUser) {
-    if (!supabaseConfigured) return
+  syncFromSupabase(currentUser: SessionUser, force = false): Promise<void> {
+    if (!supabaseConfigured) return Promise.resolve()
+    if (this.syncPromise) return this.syncPromise
+    if (!force && Date.now() - this.lastSyncAt < 30_000) return Promise.resolve()
+    this.syncPromise = this.performSupabaseSync(currentUser).finally(() => {
+      this.syncPromise = null
+    })
+    return this.syncPromise
+  }
+
+  private async performSupabaseSync(currentUser: SessionUser): Promise<void> {
     const memberships = await supabase.from('conversation_members').select('conversation_id,pinned,last_read_at').eq('user_id', currentUser.id)
     if (memberships.error) throw memberships.error
     const ids = (memberships.data ?? []).map((row) => row.conversation_id)
@@ -330,6 +342,7 @@ export class ChatStore {
       return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : '#5B8DEF', role: row.role === 'owner' ? 'admin' : 'member' }
     })]))
     this.messages = (messageRows.data ?? []).map((message) => this.mapRemoteMessage(message, profileMap, currentUser.id))
+    this.lastSyncAt = Date.now()
     this.subscribeRealtime(currentUser)
   }
 

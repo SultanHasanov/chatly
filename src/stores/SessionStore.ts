@@ -15,9 +15,10 @@ export class SessionStore {
   constructor() {
     makeAutoObservable(this)
     const saved = loadState<{ user: SessionUser | null; onboarded: boolean }>('session')
-    if (saved && !supabaseConfigured) {
+    if (saved) {
       this.user = saved.user
       this.onboarded = saved.onboarded
+      if (supabaseConfigured) this.ready = true
     }
     persist('session', () => ({ user: this.user, onboarded: this.onboarded }))
     if (supabaseConfigured) {
@@ -34,20 +35,24 @@ export class SessionStore {
       const { data } = await supabase.auth.getSession()
       if (data.session) await this.loadSupabaseUser(data.session.user.id, data.session.user.is_anonymous)
       else this.user = null
+    } catch {
+      // Keep the cached identity when the app starts without a network.
     } finally {
       this.ready = true
     }
   }
 
   private async loadSupabaseUser(id: string, isAnonymous = false) {
-    const { data } = await supabase.from('profiles').select('display_name,avatar_path').eq('id', id).maybeSingle()
+    const { data, error } = await supabase.from('profiles').select('display_name,avatar_path').eq('id', id).maybeSingle()
+    if (error) return
+    const cached = this.user?.id === id ? this.user : undefined
     const name = data?.display_name || 'Гость'
     let avatarUrl: string | undefined
     if (data?.avatar_path) {
       const signed = await supabase.storage.from('avatars').createSignedUrl(data.avatar_path, 3600)
       avatarUrl = signed.data?.signedUrl
     }
-    this.user = { id, name, initials: initialsOf(name), color: '#5B8DEF', isGuest: isAnonymous, avatarUrl }
+    this.user = { id, name, initials: initialsOf(name), color: cached?.color ?? '#5B8DEF', isGuest: isAnonymous, avatarUrl: avatarUrl ?? cached?.avatarUrl }
   }
 
   get isAuthed(): boolean {
