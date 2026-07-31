@@ -3,7 +3,34 @@ import { supabase } from './supabase'
 function decodeBase64Url(value: string) {
   const padding = '='.repeat((4 - (value.length % 4)) % 4)
   const raw = atob((value + padding).replace(/-/g, '+').replace(/_/g, '/'))
-  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)))
+  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0))).buffer as ArrayBuffer
+}
+
+function sameKey(left: ArrayBuffer | null, right: ArrayBuffer) {
+  if (!left || left.byteLength !== right.byteLength) return false
+  const bytes = new Uint8Array(left)
+  const expected = new Uint8Array(right)
+  return bytes.every((value, index) => value === expected[index])
+}
+
+async function createSubscription(registration: ServiceWorkerRegistration, applicationServerKey: ArrayBuffer) {
+  try {
+    return await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+  } catch (firstError) {
+    // A just-updated PWA can temporarily retain a stale worker registration.
+    // Refresh it and retry once before surfacing the browser/provider error.
+    await registration.update().catch(() => undefined)
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      return await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+    } catch {
+      const message = firstError instanceof Error ? firstError.message : ''
+      if (/push service|registration failed/i.test(message)) {
+        throw new Error('Сервис push недоступен. Проверьте VPN или сервисы Google и попробуйте ещё раз')
+      }
+      throw firstError
+    }
+  }
 }
 
 export async function enablePush(userId: string) {
@@ -15,11 +42,15 @@ export async function enablePush(userId: string) {
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') throw new Error('Доступ к уведомлениям не предоставлен')
   const registration = await navigator.serviceWorker.ready
-  const current = await registration.pushManager.getSubscription()
-  const subscription = current ?? await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: decodeBase64Url(key),
-  })
+  const applicationServerKey = decodeBase64Url(key.trim())
+  let current = await registration.pushManager.getSubscription()
+  if (current && !sameKey(current.options.applicationServerKey, applicationServerKey)) {
+    const oldEndpoint = current.endpoint
+    await current.unsubscribe()
+    await supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint)
+    current = null
+  }
+  const subscription = current ?? await createSubscription(registration, applicationServerKey)
   await savePushSubscription(userId, subscription)
   return true
 }

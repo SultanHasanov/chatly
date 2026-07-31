@@ -457,6 +457,9 @@ export class ChatStore {
       if (row.kind !== 'text') await new Promise((resolve) => setTimeout(resolve, 300))
       const attachments = await this.loadAttachments([row.id])
       const quote = await this.quoteFor(row)
+      // The optimistic upload may have received the server id while realtime
+      // was waiting for its attachment row. Check again to avoid a duplicate.
+      if (this.messages.some((message) => message.id === row.id)) return
       this.messages.push(this.mapRemoteMessage(row, profileMap, currentUser.id, attachments.get(row.id), quote))
       if (row.author_id !== currentUser.id) {
         const chat = this.chatById(row.conversation_id)
