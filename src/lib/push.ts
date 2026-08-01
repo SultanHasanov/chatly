@@ -1,5 +1,16 @@
 import { supabase } from './supabase'
 
+const PUSH_CONTEXT_KEY = 'chat-brat-push-context-v1'
+
+function isInstalledPwa() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || ('standalone' in navigator && (navigator as Navigator & { standalone?: boolean }).standalone === true)
+}
+
+function currentPushContext() {
+  return isInstalledPwa() ? 'standalone' : 'browser'
+}
+
 function decodeBase64Url(value: string) {
   const padding = '='.repeat((4 - (value.length % 4)) % 4)
   const raw = atob((value + padding).replace(/-/g, '+').replace(/_/g, '/'))
@@ -44,7 +55,14 @@ export async function enablePush(userId: string) {
   const registration = await navigator.serviceWorker.ready
   const applicationServerKey = decodeBase64Url(key.trim())
   let current = await registration.pushManager.getSubscription()
-  if (current && !sameKey(current.options.applicationServerKey, applicationServerKey)) {
+  const context = currentPushContext()
+  const savedContext = localStorage.getItem(PUSH_CONTEXT_KEY)
+  // Android associates the notification channel with the context where the
+  // subscription was created. Recreate legacy/browser subscriptions once when
+  // the user launches the installed PWA, otherwise notifications are shown as
+  // Chrome notifications and the launcher dot is attached to Chrome.
+  const needsInstalledPwaMigration = current && context === 'standalone' && savedContext !== 'standalone'
+  if (current && (!sameKey(current.options.applicationServerKey, applicationServerKey) || needsInstalledPwaMigration)) {
     const oldEndpoint = current.endpoint
     await current.unsubscribe()
     await supabase.from('push_subscriptions').delete().eq('endpoint', oldEndpoint)
@@ -52,6 +70,7 @@ export async function enablePush(userId: string) {
   }
   const subscription = current ?? await createSubscription(registration, applicationServerKey)
   await savePushSubscription(userId, subscription)
+  localStorage.setItem(PUSH_CONTEXT_KEY, context)
   return true
 }
 
@@ -64,6 +83,7 @@ export async function disablePush() {
   await subscription.unsubscribe()
   const { error } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
   if (error) throw error
+  localStorage.removeItem(PUSH_CONTEXT_KEY)
   return false
 }
 
@@ -82,9 +102,5 @@ async function savePushSubscription(userId: string, subscription: PushSubscripti
 
 export async function restorePushSubscription(userId: string) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window) || Notification.permission !== 'granted') return false
-  const registration = await navigator.serviceWorker.ready
-  const subscription = await registration.pushManager.getSubscription()
-  if (!subscription) return false
-  await savePushSubscription(userId, subscription)
-  return true
+  return enablePush(userId)
 }

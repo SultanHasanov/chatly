@@ -29,6 +29,7 @@ export default defineConfig({
         ],
       },
       manifest: {
+        id: '/',
         name: 'Chat Brat',
         short_name: 'Chat Brat',
         description: 'Общайтесь без лишнего',
@@ -47,6 +48,29 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
+          },
+        ],
+        screenshots: [
+          {
+            src: '/image1.png',
+            sizes: '1080x2400',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Список чатов Chat Brat',
+          },
+          {
+            src: '/image2.png',
+            sizes: '1080x2400',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Групповой чат и голосовые сообщения',
+          },
+          {
+            src: '/image3.png',
+            sizes: '576x1280',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Информация и настройки группы',
           },
         ],
       },
