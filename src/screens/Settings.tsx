@@ -41,7 +41,8 @@ export const Settings = observer(function Settings() {
     if (!file || !user || !supabaseConfigured) return
     try {
       setNotice('Загрузка аватара…')
-      await uploadAvatar(user.id, file)
+      const path = await uploadAvatar(user.id, file)
+      user.avatarPath = path
       user.avatarUrl = URL.createObjectURL(file)
       setNotice('Аватар обновлён')
     } catch (reason) {

@@ -9,6 +9,7 @@ export type MemberRole = 'admin' | 'member' | 'guest'
 
 export interface Member extends Contact {
   role: MemberRole
+  avatarPath?: string
   avatarUrl?: string
 }
 
@@ -20,6 +21,8 @@ export interface Quote {
 
 export interface Message {
   id: string
+  /** Временный id оптимистичного сообщения: помогает схлопнуть дубль с серверной копией. */
+  clientId?: string
   chatId: string
   authorId: string
   authorName: string
@@ -69,6 +72,7 @@ export interface SessionUser {
   isGuest: boolean
   /** Для гостя — чат, в который он вошёл по ссылке. */
   guestChatId?: string
+  avatarPath?: string
   avatarUrl?: string
 }
 

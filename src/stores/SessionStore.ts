@@ -3,6 +3,7 @@ import { clearState, loadState, persist } from '../lib/persist'
 import { initialsOf } from '../lib/format'
 import type { SessionUser } from '../types'
 import { ensureAnonymousSession, supabase, supabaseConfigured } from '../lib/supabase'
+import { clearAvatarCache, knownAvatarUrl, signedAvatarUrl, warmAvatar } from '../lib/avatarCache'
 
 export class SessionStore {
   user: SessionUser | null = null
@@ -14,7 +15,18 @@ export class SessionStore {
     makeAutoObservable(this)
     const saved = loadState<{ user: SessionUser | null; onboarded: boolean }>('session')
     if (saved) {
-      this.user = saved.user ? { ...saved.user, isGuest: false, guestChatId: undefined } : null
+      const savedUser = saved.user
+      // Подписанная ссылка из прошлой сессии может быть протухшей: берём только годную,
+      // иначе <img> отвалится и на аватаре мигнут инициалы.
+      this.user = savedUser
+        ? {
+            ...savedUser,
+            isGuest: false,
+            guestChatId: undefined,
+            avatarUrl: savedUser.avatarPath ? knownAvatarUrl(savedUser.avatarPath) : savedUser.avatarUrl,
+          }
+        : null
+      if (this.user?.avatarPath) void this.adoptCachedAvatar(this.user.avatarPath)
       this.onboarded = saved.onboarded
       if (supabaseConfigured) this.ready = true
     }
@@ -26,6 +38,11 @@ export class SessionStore {
         else void this.loadSupabaseUser(session.user.id)
       })
     }
+  }
+
+  private async adoptCachedAvatar(path: string) {
+    const cached = await warmAvatar(path)
+    if (cached && this.user?.avatarPath === path) this.user = { ...this.user, avatarUrl: cached }
   }
 
   private async restoreSupabaseSession() {
@@ -45,12 +62,12 @@ export class SessionStore {
     if (error) return
     const cached = this.user?.id === id ? this.user : undefined
     const name = data?.display_name || 'Гость'
+    const avatarPath: string | undefined = data?.avatar_path ?? undefined
     let avatarUrl: string | undefined
-    if (data?.avatar_path) {
-      const signed = await supabase.storage.from('avatars').createSignedUrl(data.avatar_path, 3600)
-      avatarUrl = signed.data?.signedUrl
+    if (avatarPath) {
+      avatarUrl = (await warmAvatar(avatarPath)) ?? (await signedAvatarUrl(avatarPath))
     }
-    this.user = { id, name, initials: initialsOf(name), color: cached?.color ?? '#5B8DEF', isGuest: false, avatarUrl: avatarUrl ?? cached?.avatarUrl }
+    this.user = { id, name, initials: initialsOf(name), color: cached?.color ?? '#5B8DEF', isGuest: false, avatarPath, avatarUrl: avatarUrl ?? (avatarPath ? cached?.avatarUrl : undefined) }
   }
 
   get isAuthed(): boolean {
@@ -85,6 +102,7 @@ export class SessionStore {
   async logout() {
     if (supabaseConfigured) await supabase.auth.signOut()
     this.user = null
+    clearAvatarCache()
     clearState('session')
   }
 }

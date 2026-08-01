@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export function Avatar({
   initials,
@@ -13,9 +13,18 @@ export function Avatar({
   fontSize?: number
   src?: string
 }) {
-  // Подписанные ссылки живут час: протухшую подменяем инициалами, а не битой картинкой.
-  const [failed, setFailed] = useState(false)
-  useEffect(() => setFailed(false), [src])
+  // Если новая подписанная ссылка не открылась, продолжаем
+  // показывать последнюю удачную картинку: инициалы вместо аватара мигать не должны.
+  const [shown, setShown] = useState<string | undefined>(src)
+  const loaded = useRef<string | undefined>(undefined)
+
+  useEffect(() => {
+    if (src) setShown(src)
+    else {
+      loaded.current = undefined
+      setShown(undefined)
+    }
+  }, [src])
 
   return (
     <div
@@ -27,12 +36,17 @@ export function Avatar({
         fontSize: fontSize ?? Math.round(size * 0.35),
       }}
     >
-      {src && !failed ? (
+      {shown ? (
         <img
-          src={src}
+          src={shown}
           alt=""
           decoding="async"
-          onError={() => setFailed(true)}
+          onLoad={() => { loaded.current = shown }}
+          onError={() => {
+            // Отвалилась и запасная копия — только тогда показываем инициалы.
+            if (shown === loaded.current) loaded.current = undefined
+            setShown(loaded.current)
+          }}
           className="h-full w-full rounded-full object-cover"
         />
       ) : (

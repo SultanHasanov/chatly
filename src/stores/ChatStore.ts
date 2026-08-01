@@ -5,6 +5,7 @@ import { authorColorOf, initialsOf, randomCode } from '../lib/format'
 import type { Chat, Member, Message, Quote, SessionUser } from '../types'
 import { signedMediaUrl, supabase, supabaseConfigured } from '../lib/supabase'
 import { uploadChatFile, uploadGroupAvatar } from '../lib/uploads'
+import { clearAvatarCache, knownAvatarUrl, rememberAvatarUrl, signedAvatarUrl, warmAvatar } from '../lib/avatarCache'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface Snapshot {
@@ -23,7 +24,6 @@ export class ChatStore {
   private syncPromise: Promise<void> | null = null
   private lastSyncAt = 0
   private readAtOverrides = new Map<string, number>()
-  private avatarUrlCache = new Map<string, { url: string; expiresAt: number }>()
 
   constructor() {
     makeAutoObservable(this)
@@ -33,6 +33,7 @@ export class ChatStore {
       this.chats = saved.chats
       this.messages = saved.messages
       this.extraMembers = saved.extraMembers ?? {}
+      this.adoptCachedAvatars()
     } else if (!supabaseConfigured) {
       this.chats = seedChats()
       this.messages = seedMessages()
@@ -42,6 +43,30 @@ export class ChatStore {
       chats: this.chats,
       messages: this.messages,
       extraMembers: this.extraMembers,
+    }))
+  }
+
+  /**
+   * Восстановленные из localStorage ссылки могут быть протухшими (или это мёртвый
+   * blob: с прошлой сессии) — тогда <img> отвалится и мигнут инициалы. Берём только
+   * заведомо годные ссылки, а следом поднимаем картинки из Cache Storage.
+   */
+  private adoptCachedAvatars() {
+    const holders: { avatarPath?: string; avatarUrl?: string }[] = [
+      ...this.chats,
+      ...Object.values(this.extraMembers).flat(),
+    ]
+    for (const holder of holders) {
+      if (!holder.avatarPath) {
+        if (holder.avatarUrl?.startsWith('blob:')) holder.avatarUrl = undefined
+        continue
+      }
+      holder.avatarUrl = knownAvatarUrl(holder.avatarPath)
+    }
+    void Promise.all(holders.map(async (holder) => {
+      if (!holder.avatarPath) return
+      const cached = await warmAvatar(holder.avatarPath)
+      if (cached) holder.avatarUrl = cached
     }))
   }
 
@@ -146,11 +171,14 @@ export class ChatStore {
     const previewUrl = URL.createObjectURL(file)
     const temporaryId = `upload-${crypto.randomUUID()}`
     const pending: Message = {
-      id: temporaryId, chatId, authorId: author.id, authorName: author.name,
+      id: temporaryId, clientId: temporaryId, chatId, authorId: author.id, authorName: author.name,
       authorColor: author.color, text: caption, ts: Date.now(), outgoing: true, status: 'sent',
       attachment: { kind, caption: caption || file.name, fileName: file.name, mimeType: file.type, size: file.size, durationMs, url: previewUrl, uploading: supabaseConfigured },
     }
+    // MobX оборачивает элемент массива в прокси: мутировать нужно именно его,
+    // иначе переименование в серверный id потеряется и придёт дубль из realtime.
     this.messages.push(pending)
+    const stored = this.messages[this.messages.length - 1]
     if (!supabaseConfigured) {
       return
     }
@@ -164,15 +192,15 @@ export class ChatStore {
       const realtimeMessage = this.messages.find((message) => message.id === created.data.id)
       if (realtimeMessage) {
         realtimeMessage.attachment = localAttachment
-        this.messages = this.messages.filter((message) => message.id !== temporaryId)
+        this.messages = this.messages.filter((message) => message.clientId !== temporaryId)
       } else {
-        pending.id = created.data.id
-        pending.ts = new Date(created.data.created_at).getTime()
-        pending.attachment = localAttachment
+        stored.id = created.data.id
+        stored.ts = new Date(created.data.created_at).getTime()
+        stored.attachment = localAttachment
       }
       await this.markRead(chatId, author.id)
     } catch (reason) {
-      this.messages = this.messages.filter((message) => message.id !== temporaryId)
+      this.messages = this.messages.filter((message) => message.clientId !== temporaryId)
       URL.revokeObjectURL(previewUrl)
       throw reason
     }
@@ -279,7 +307,7 @@ export class ChatStore {
     this.messages = []
     this.extraMembers = {}
     this.readAtOverrides.clear()
-    this.avatarUrlCache.clear()
+    clearAvatarCache()
     if (this.realtime) void supabase.removeChannel(this.realtime)
     if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
     this.realtime = null
@@ -340,7 +368,7 @@ export class ChatStore {
     const result = await uploadGroupAvatar(userId, chatId, file)
     chat.avatarPath = result.path
     chat.avatarUrl = result.url
-    if (result.url) this.avatarUrlCache.set(result.path, { url: result.url, expiresAt: Date.now() + 50 * 60_000 })
+    if (result.url) rememberAvatarUrl(result.path, result.url)
   }
 
   syncFromSupabase(currentUser: SessionUser, force = false): Promise<void> {
@@ -390,25 +418,29 @@ export class ChatStore {
         new Date(message.created_at).getTime() > lastReadAt
       ).length
       const avatarPath = conversation.avatar_path ?? undefined
-      const cachedAvatar = avatarPath ? this.avatarUrlCache.get(avatarPath) : undefined
-      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath, avatarUrl: cachedAvatar?.url ?? (avatarPath ? visibleAvatars.get(avatarPath) : undefined) }
+      const cachedAvatar = knownAvatarUrl(avatarPath)
+      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath, avatarUrl: cachedAvatar ?? (avatarPath ? visibleAvatars.get(avatarPath) : undefined) }
     })
     await Promise.all(this.chats.map(async (chat) => {
       if (!chat.avatarPath) return
-      const nextUrl = await this.signedAvatar(chat.avatarPath)
-      if (!nextUrl || nextUrl === chat.avatarUrl) return
+      const cachedBytes = await warmAvatar(chat.avatarPath)
+      if (cachedBytes && !chat.avatarUrl) chat.avatarUrl = cachedBytes
+      const nextUrl = await signedAvatarUrl(chat.avatarPath)
+      // Локальные байты уже на экране — незачем менять их на сетевую ссылку.
+      if (!nextUrl || nextUrl === chat.avatarUrl || chat.avatarUrl?.startsWith('blob:')) return
       // Do not replace the visible cached image until the refreshed signed URL
       // has decoded. Otherwise initials flash between the two image requests.
       if (await this.preloadImage(nextUrl)) chat.avatarUrl = nextUrl
     }))
     const memberAvatars = new Map(await Promise.all(memberIds.map(async (id): Promise<[string, string | undefined]> => {
       const path = profileMap.get(id)?.avatar_path
-      return [id, path ? await this.signedAvatar(path) : undefined]
+      if (!path) return [id, undefined]
+      return [id, (await warmAvatar(path)) ?? (await signedAvatarUrl(path))]
     })))
     this.extraMembers = Object.fromEntries(this.chats.map((chat) => [chat.id, (memberRows.data ?? []).filter((row) => row.conversation_id === chat.id).map((row) => {
       const profile = profileMap.get(row.user_id)
       const memberName = profile?.display_name ?? 'Участник'
-      return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : authorColorOf(row.user_id), role: row.role === 'owner' ? 'admin' : 'member', avatarUrl: memberAvatars.get(row.user_id) }
+      return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : authorColorOf(row.user_id), role: row.role === 'owner' ? 'admin' : 'member', avatarPath: profile?.avatar_path ?? undefined, avatarUrl: memberAvatars.get(row.user_id) }
     })]))
     const attachmentMap = await this.loadAttachments((messageRows.data ?? []).map((message) => message.id))
     const remoteRows = new Map((messageRows.data ?? []).map((message) => [message.id, message]))
@@ -435,16 +467,6 @@ export class ChatStore {
     if (!data) return undefined
     const member = this.membersOf(message.conversation_id).find((item) => item.id === data.author_id)
     return { messageId: data.id, authorName: member?.name ?? 'Участник', text: data.body || 'Вложение' }
-  }
-
-  /** Подписанная ссылка на аватар с кешом — общая для чатов и участников. */
-  private async signedAvatar(path: string): Promise<string | undefined> {
-    const cached = this.avatarUrlCache.get(path)
-    if (cached && cached.expiresAt > Date.now()) return cached.url
-    const signed = await supabase.storage.from('avatars').createSignedUrl(path, 3600)
-    const url = signed.data?.signedUrl
-    if (url) this.avatarUrlCache.set(path, { url, expiresAt: Date.now() + 50 * 60_000 })
-    return url
   }
 
   private preloadImage(url: string): Promise<boolean> {

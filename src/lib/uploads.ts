@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { AVATAR_SIGNED_TTL_SECONDS, rememberAvatarUrl } from './avatarCache'
 
 export type UploadKind = 'image' | 'video' | 'document' | 'voice'
 
@@ -42,6 +43,9 @@ export async function uploadAvatar(userId: string, file: File) {
   if (error) throw error
   const updated = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId)
   if (updated.error) throw updated.error
+  // Сразу кладём ссылку и байты в кеш, чтобы после перезагрузки не мигали инициалы.
+  const signed = await supabase.storage.from('avatars').createSignedUrl(path, AVATAR_SIGNED_TTL_SECONDS)
+  if (signed.data?.signedUrl) rememberAvatarUrl(path, signed.data.signedUrl)
   return path
 }
 
@@ -53,6 +57,6 @@ export async function uploadGroupAvatar(userId: string, conversationId: string, 
   if (uploaded.error) throw uploaded.error
   const updated = await supabase.from('conversations').update({ avatar_path: path }).eq('id', conversationId)
   if (updated.error) throw updated.error
-  const signed = await supabase.storage.from('avatars').createSignedUrl(path, 3600)
+  const signed = await supabase.storage.from('avatars').createSignedUrl(path, AVATAR_SIGNED_TTL_SECONDS)
   return { path, url: signed.data?.signedUrl }
 }
