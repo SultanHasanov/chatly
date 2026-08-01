@@ -354,6 +354,9 @@ export class ChatStore {
   }
 
   private async performSupabaseSync(currentUser: SessionUser): Promise<void> {
+    const visibleAvatars = new Map(this.chats.flatMap((chat) =>
+      chat.avatarPath && chat.avatarUrl ? [[chat.avatarPath, chat.avatarUrl] as const] : [],
+    ))
     const memberships = await supabase.from('conversation_members').select('conversation_id,pinned,last_read_at').eq('user_id', currentUser.id)
     if (memberships.error) throw memberships.error
     const ids = (memberships.data ?? []).map((row) => row.conversation_id)
@@ -388,11 +391,15 @@ export class ChatStore {
       ).length
       const avatarPath = conversation.avatar_path ?? undefined
       const cachedAvatar = avatarPath ? this.avatarUrlCache.get(avatarPath) : undefined
-      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath, avatarUrl: cachedAvatar?.url }
+      return { id: conversation.id, name, initials: initialsOf(name), color: '#128C7E', isGroup: conversation.kind === 'group', memberIds: members.map((row) => row.user_id), memberCount: members.length, pinned: membership?.pinned ?? false, unreadCount, inviteCode: inviteMap.get(conversation.id) ?? '', description: conversation.description ?? undefined, mediaCount: 0, avatarPath, avatarUrl: cachedAvatar?.url ?? (avatarPath ? visibleAvatars.get(avatarPath) : undefined) }
     })
     await Promise.all(this.chats.map(async (chat) => {
       if (!chat.avatarPath) return
-      chat.avatarUrl = await this.signedAvatar(chat.avatarPath)
+      const nextUrl = await this.signedAvatar(chat.avatarPath)
+      if (!nextUrl || nextUrl === chat.avatarUrl) return
+      // Do not replace the visible cached image until the refreshed signed URL
+      // has decoded. Otherwise initials flash between the two image requests.
+      if (await this.preloadImage(nextUrl)) chat.avatarUrl = nextUrl
     }))
     const memberAvatars = new Map(await Promise.all(memberIds.map(async (id): Promise<[string, string | undefined]> => {
       const path = profileMap.get(id)?.avatar_path
@@ -438,6 +445,15 @@ export class ChatStore {
     const url = signed.data?.signedUrl
     if (url) this.avatarUrlCache.set(path, { url, expiresAt: Date.now() + 50 * 60_000 })
     return url
+  }
+
+  private preloadImage(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const image = new Image()
+      image.onload = () => resolve(true)
+      image.onerror = () => resolve(false)
+      image.src = url
+    })
   }
 
   private async loadAttachments(messageIds: string[]): Promise<Map<string, Message['attachment']>> {
