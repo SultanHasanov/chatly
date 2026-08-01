@@ -44,6 +44,13 @@ export const NewGroupDetails = observer(function NewGroupDetails() {
           }} />
           <input
             autoFocus
+            type="text"
+            name="title"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Название группы"
@@ -53,6 +60,13 @@ export const NewGroupDetails = observer(function NewGroupDetails() {
 
         <div className="px-5 py-4">
           <input
+            type="text"
+            name="descr"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Описание группы (необязательно)"

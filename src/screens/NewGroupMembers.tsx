@@ -39,6 +39,13 @@ export const NewGroupMembers = observer(function NewGroupMembers() {
       >
         <Search size={16} strokeWidth={1.7} className="text-muted" />
         <input
+          type="text"
+          name="q"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          data-form-type="other"
+          data-lpignore="true"
           value={contacts.query}
           onChange={(e) => contacts.setQuery(e.target.value)}
           placeholder="Поиск"

@@ -57,6 +57,13 @@ export const ChatList = observer(function ChatList() {
       >
         <Search size={20} strokeWidth={1.8} className="text-muted" />
         <input
+          type="text"
+          name="q"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          data-form-type="other"
+          data-lpignore="true"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск…"

@@ -69,7 +69,7 @@ export function MediaComposer({ files, onClose, onSend }: {
       <div className="flex shrink-0 items-center gap-2 bg-[#0b141a] px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+10px)]">
         <ImageIcon size={21} className="shrink-0 text-[#aebac1]" />
         <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full bg-[#202c33] px-4">
-          <input value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Добавить подпись…" className="min-w-0 flex-1 text-body text-white placeholder:text-[#8696a0]" />
+          <input type="text" name="cap" autoComplete="off" autoCorrect="off" spellCheck={false} data-form-type="other" data-lpignore="true" value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Добавить подпись…" className="min-w-0 flex-1 text-body text-white placeholder:text-[#8696a0]" />
           <Sparkles size={19} className="text-[#8696a0]" />
         </div>
         <button type="button" aria-label={`Отправить ${files.length} файлов`} disabled={preparing} onClick={() => void prepareAndSend()} className="tap relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent disabled:opacity-60">

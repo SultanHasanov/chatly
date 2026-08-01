@@ -281,7 +281,11 @@ export const Chat = observer(function Chat() {
           </div>
         )}
         {recording && <div className="mb-1 flex items-center justify-center gap-2 text-note" style={{ color: 'var(--c-danger)' }}><span className="h-2 w-2 animate-pulse rounded-full bg-current" />Запись {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')} · нажмите микрофон для отправки</div>}
-        <div className="flex items-center gap-2">
+        <form
+          autoComplete="off"
+          className="flex items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); void send() }}
+        >
           <div
             className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-[24px] pr-3.5 pl-3"
             style={{ background: 'var(--c-bar)' }}
@@ -290,8 +294,13 @@ export const Chat = observer(function Chat() {
               <Smile size={24} strokeWidth={1.6} className="text-muted" />
             </button>
             <input
-              name="chat-message"
+              type="text"
+              name="msg"
               autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
               autoCapitalize="sentences"
               enterKeyHint="send"
               value={text}
@@ -319,7 +328,7 @@ export const Chat = observer(function Chat() {
               <Mic size={20} strokeWidth={1.7} color="#fff" />
             )}
           </button>
-        </div>
+        </form>
       </div>
       {openMedia && <MediaViewer message={openMedia} onClose={() => setOpenMedia(null)} />}
       {selectedMedia.length > 0 && <MediaComposer files={selectedMedia} onClose={() => setSelectedMedia([])} onSend={sendSelectedMedia} />}

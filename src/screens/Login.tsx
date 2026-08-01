@@ -45,7 +45,7 @@ export const Login = observer(function Login() {
       <p className="text-center text-body leading-relaxed text-muted">
         Имя увидят участники групп. Регистрация, пароль и Telegram не нужны.
       </p>
-      <input autoFocus value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void start()} placeholder="Ваше имя" maxLength={80} className="h-12 w-full rounded-[10px] border border-divider px-3.5 text-item placeholder:text-faint" />
+      <input autoFocus type="text" name="nick" autoComplete="off" autoCorrect="off" spellCheck={false} data-form-type="other" data-lpignore="true" value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void start()} placeholder="Ваше имя" maxLength={80} className="h-12 w-full rounded-[10px] border border-divider px-3.5 text-item placeholder:text-faint" />
       <button type="button" onClick={() => void start()} disabled={!name.trim() || loading} className="tap h-[52px] w-full rounded-xl bg-accent text-title font-semibold text-white disabled:opacity-50">
         {loading ? 'Создаём профиль…' : 'Продолжить'}
       </button>

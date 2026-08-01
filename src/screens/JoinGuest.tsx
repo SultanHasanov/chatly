@@ -87,6 +87,13 @@ export const JoinGuest = observer(function JoinGuest() {
           <span className="mb-1.5 block text-note text-muted">Ваше имя</span>
           <input
             autoFocus
+            type="text"
+            name="nick"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-form-type="other"
+            data-lpignore="true"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void join()}
