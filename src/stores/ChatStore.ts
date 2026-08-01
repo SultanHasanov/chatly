@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx'
-import { loadState, persist } from '../lib/persist'
+import { clearState, loadState, persist } from '../lib/persist'
 import { CONTACTS, DESIGN_TEAM_MEMBERS, seedChats, seedMessages } from '../data/mock'
 import { authorColorOf, initialsOf, randomCode } from '../lib/format'
 import type { Chat, Member, Message, Quote, SessionUser } from '../types'
@@ -9,6 +9,7 @@ import { clearAvatarCache, knownAvatarUrl, rememberAvatarUrl, signedAvatarUrl, w
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface Snapshot {
+  ownerUserId: string
   chats: Chat[]
   messages: Message[]
   extraMembers: Record<string, Member[]>
@@ -24,26 +25,67 @@ export class ChatStore {
   private syncPromise: Promise<void> | null = null
   private lastSyncAt = 0
   private readAtOverrides = new Map<string, number>()
+  private activeUserId: string | null = null
+  private stopCachePersistence: (() => void) | null = null
+  private stateGeneration = 0
 
   constructor() {
     makeAutoObservable(this)
-    const saved = loadState<Snapshot>('chats')
-    // This snapshot is also the read-through cache when Supabase is enabled.
-    if (saved) {
-      this.chats = saved.chats
-      this.messages = saved.messages
-      this.extraMembers = saved.extraMembers ?? {}
-      this.adoptCachedAvatars()
-    } else if (!supabaseConfigured) {
+    // Older builds used one shared cache for every account. It has no reliable
+    // owner, so loading it could expose the previous user's conversations.
+    clearState('chats')
+    if (!supabaseConfigured) {
       this.chats = seedChats()
       this.messages = seedMessages()
       this.extraMembers = { design: DESIGN_TEAM_MEMBERS }
     }
-    persist('chats', () => ({
-      chats: this.chats,
-      messages: this.messages,
-      extraMembers: this.extraMembers,
+  }
+
+  activateUser(userId: string | null) {
+    if (!supabaseConfigured || this.activeUserId === userId) return
+    const previousUserId = this.activeUserId
+    this.stopCachePersistence?.()
+    this.stopCachePersistence = null
+    this.resetRuntimeState()
+    this.activeUserId = userId
+    if (!userId) {
+      // A deliberate or provider-driven sign-out must leave no readable chat
+      // history behind on a shared device.
+      if (previousUserId) clearState(this.cacheKey(previousUserId))
+      return
+    }
+
+    const saved = loadState<Snapshot>(this.cacheKey(userId))
+    if (saved?.ownerUserId === userId) {
+      this.chats = saved.chats
+      this.messages = saved.messages
+      this.extraMembers = saved.extraMembers ?? {}
+      this.adoptCachedAvatars()
+    }
+    this.stopCachePersistence = persist(this.cacheKey(userId), () => ({
+      ownerUserId: userId,
+      chats: this.activeUserId === userId ? this.chats : [],
+      messages: this.activeUserId === userId ? this.messages : [],
+      extraMembers: this.activeUserId === userId ? this.extraMembers : {},
     }))
+  }
+
+  private cacheKey(userId: string) {
+    return `chats:${userId}`
+  }
+
+  private resetRuntimeState() {
+    this.stateGeneration += 1
+    this.chats = []
+    this.messages = []
+    this.extraMembers = {}
+    this.readAtOverrides.clear()
+    if (this.realtime) void supabase.removeChannel(this.realtime)
+    if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
+    this.realtime = null
+    this.reconciliationTimer = null
+    this.syncPromise = null
+    this.lastSyncAt = 0
   }
 
   /**
@@ -303,16 +345,11 @@ export class ChatStore {
   }
 
   clearLocalData() {
-    this.chats = []
-    this.messages = []
-    this.extraMembers = {}
-    this.readAtOverrides.clear()
+    if (this.activeUserId) clearState(this.cacheKey(this.activeUserId))
+    this.stopCachePersistence?.()
+    this.stopCachePersistence = null
+    this.resetRuntimeState()
     clearAvatarCache()
-    if (this.realtime) void supabase.removeChannel(this.realtime)
-    if (this.reconciliationTimer) clearInterval(this.reconciliationTimer)
-    this.realtime = null
-    this.reconciliationTimer = null
-    this.lastSyncAt = 0
   }
 
   togglePin(chatId: string) {
@@ -373,19 +410,24 @@ export class ChatStore {
 
   syncFromSupabase(currentUser: SessionUser, force = false): Promise<void> {
     if (!supabaseConfigured) return Promise.resolve()
+    if (this.activeUserId !== currentUser.id) this.activateUser(currentUser.id)
     if (this.syncPromise) return this.syncPromise
     if (!force && Date.now() - this.lastSyncAt < 30_000) return Promise.resolve()
-    this.syncPromise = this.performSupabaseSync(currentUser).finally(() => {
-      this.syncPromise = null
+    const generation = this.stateGeneration
+    const request = this.performSupabaseSync(currentUser, generation).finally(() => {
+      if (this.syncPromise === request) this.syncPromise = null
     })
-    return this.syncPromise
+    this.syncPromise = request
+    return request
   }
 
-  private async performSupabaseSync(currentUser: SessionUser): Promise<void> {
+  private async performSupabaseSync(currentUser: SessionUser, generation: number): Promise<void> {
+    const isCurrent = () => this.activeUserId === currentUser.id && this.stateGeneration === generation
     const visibleAvatars = new Map(this.chats.flatMap((chat) =>
       chat.avatarPath && chat.avatarUrl ? [[chat.avatarPath, chat.avatarUrl] as const] : [],
     ))
     const memberships = await supabase.from('conversation_members').select('conversation_id,pinned,last_read_at').eq('user_id', currentUser.id)
+    if (!isCurrent()) return
     if (memberships.error) throw memberships.error
     const ids = (memberships.data ?? []).map((row) => row.conversation_id)
     if (!ids.length) { this.chats = []; this.messages = []; return }
@@ -394,11 +436,14 @@ export class ChatStore {
       supabase.from('conversation_members').select('conversation_id,user_id,role').in('conversation_id', ids),
       supabase.from('messages').select('*').in('conversation_id', ids).is('deleted_at', null).order('created_at'),
     ])
+    if (!isCurrent()) return
     if (conversations.error) throw conversations.error
     const memberIds = [...new Set((memberRows.data ?? []).map((row) => row.user_id))]
     const profiles = memberIds.length ? await supabase.from('profiles').select('id,display_name,avatar_path').in('id', memberIds) : { data: [] }
+    if (!isCurrent()) return
     const profileMap = new Map((profiles.data ?? []).map((profile) => [profile.id, profile]))
     const inviteRows = await supabase.from('group_invites').select('conversation_id,code').in('conversation_id', ids)
+    if (!isCurrent()) return
     const inviteMap = new Map((inviteRows.data ?? []).map((invite) => [invite.conversation_id, invite.code]))
     this.chats = (conversations.data ?? []).map((conversation) => {
       const members = (memberRows.data ?? []).filter((row) => row.conversation_id === conversation.id)
@@ -432,17 +477,20 @@ export class ChatStore {
       // has decoded. Otherwise initials flash between the two image requests.
       if (await this.preloadImage(nextUrl)) chat.avatarUrl = nextUrl
     }))
+    if (!isCurrent()) return
     const memberAvatars = new Map(await Promise.all(memberIds.map(async (id): Promise<[string, string | undefined]> => {
       const path = profileMap.get(id)?.avatar_path
       if (!path) return [id, undefined]
       return [id, (await warmAvatar(path)) ?? (await signedAvatarUrl(path))]
     })))
+    if (!isCurrent()) return
     this.extraMembers = Object.fromEntries(this.chats.map((chat) => [chat.id, (memberRows.data ?? []).filter((row) => row.conversation_id === chat.id).map((row) => {
       const profile = profileMap.get(row.user_id)
       const memberName = profile?.display_name ?? 'Участник'
       return { id: row.user_id, name: memberName, initials: initialsOf(memberName), color: row.user_id === currentUser.id ? currentUser.color : authorColorOf(row.user_id), role: row.role === 'owner' ? 'admin' : 'member', avatarPath: profile?.avatar_path ?? undefined, avatarUrl: memberAvatars.get(row.user_id) }
     })]))
     const attachmentMap = await this.loadAttachments((messageRows.data ?? []).map((message) => message.id))
+    if (!isCurrent()) return
     const remoteRows = new Map((messageRows.data ?? []).map((message) => [message.id, message]))
     this.messages = (messageRows.data ?? []).map((message) => {
       const replied = message.reply_to_id ? remoteRows.get(message.reply_to_id) : undefined

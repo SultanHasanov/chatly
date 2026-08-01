@@ -28,7 +28,6 @@ export class SessionStore {
         : null
       if (this.user?.avatarPath) void this.adoptCachedAvatar(this.user.avatarPath)
       this.onboarded = saved.onboarded
-      if (supabaseConfigured) this.ready = true
     }
     persist('session', () => ({ user: this.user, onboarded: this.onboarded }))
     if (supabaseConfigured) {

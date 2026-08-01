@@ -14,8 +14,8 @@ export function loadState<T>(key: string): T | null {
 /**
  * Сохраняет сериализуемый срез стора в localStorage при каждом его изменении.
  */
-export function persist<T>(key: string, snapshot: () => T): void {
-  autorun(() => {
+export function persist<T>(key: string, snapshot: () => T): () => void {
+  return autorun(() => {
     const data = toJS(snapshot())
     try {
       localStorage.setItem(PREFIX + key, JSON.stringify(data))

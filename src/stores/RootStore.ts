@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import { reaction } from 'mobx'
 import { ChatStore } from './ChatStore'
 import { ContactStore } from './ContactStore'
 import { SessionStore } from './SessionStore'
@@ -9,6 +10,14 @@ export class RootStore {
   session = new SessionStore()
   chats = new ChatStore()
   contacts = new ContactStore()
+
+  constructor() {
+    reaction(
+      () => this.session.ready ? this.session.user?.id ?? null : null,
+      (userId) => this.chats.activateUser(userId),
+      { fireImmediately: true },
+    )
+  }
 }
 
 export const rootStore = new RootStore()
